@@ -21,11 +21,11 @@
 			$(document).ready(function() {
 				_q_boxClose();
 				q_getId();
-				q_gf('', 'z_trans_va');
+				q_gf('', 'z_fixa_va');
 			});  
             function q_gfPost() {
                 $('#q_report').q_report({
-                    fileName : 'z_trans_va',
+                    fileName : 'z_fixa_va',
                     options : [{/* [1]*/
                         type : '0',
                         name : 'accy',
