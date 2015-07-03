@@ -1,21 +1,25 @@
 z_fixa_va02:--z_fixa_va02
 
-declare @t_bdate nvarchar(10)
-declare @t_edate nvarchar(10)
+declare @t_bmon nvarchar(10)
+declare @t_emon nvarchar(10)
+declare @t_bfixadate nvarchar(10)
+declare @t_efixadate nvarchar(10)
 declare @t_carno nvarchar(20)
 
-set @t_bdate = case when '#non'=[3] then '' else [3] end
-set @t_edate = case when '#non'=[4] then char(255) else [4] end
+
+set @t_bmon = case when '#non'=[3] then '' else [3] end
+set @t_emon = case when '#non'=[4] then char(255) else [4] end
+set @t_bfixadate = case when '#non'=[5] then '' else [5] end
+set @t_efixadate = case when '#non'=[6] then char(255) else [6] end
 set @t_carno = case when '#non'=[7] then '' else [7] end
 
 ---------------------------------------------------------------------------------
 
 declare @tmp table(
 	gno nvarchar(1),
-	recno int,
 	mon nvarchar(10),
 	fixadate nvarchar(10),
-	carno nvarchar(20),
+	carxno nvarchar(20),
 	product nvarchar(50),
 	miles float,
 	tgg nvarchar(90),
@@ -23,117 +27,71 @@ declare @tmp table(
 	memo nvarchar(200)
 )
 
+
 insert into @tmp
-select '0',DENSE_RANK() over(order by mon),a.mon,a.fixadate,a.carno,b.product,a.miles,a.tgg,b.price,b.memo from fixa a 
+select '0',a.mon,a.fixadate,a.carno,b.product,a.miles,a.tgg,b.price,b.memo from fixa a 
 left join fixas b on a.noa = b.noa
-where (a.carno = @t_carno) and (a.fixadate between @t_bdate and @t_edate)
+where (len(@t_carno) = 0 or a.carno = @t_carno) and (a.mon between @t_bmon and @t_emon)and  (a.fixadate between @t_bfixadate and @t_efixadate)
 
 update @tmp set mon = SUBSTRING(mon,1,3)+'.'+SUBSTRING(mon,5,6)
 
-declare @result table(
-	gno nvarchar(1),
-	mon nvarchar(10),
-	fixadate nvarchar(10),
-	carno nvarchar(20),
-	product nvarchar(50),
-	miles float,
-	tgg nvarchar(90),
-	price float,
-	memo nvarchar(200)
-)
+insert into @tmp(gno,mon,carxno)
+select '1',mon,carxno from @tmp where gno = '0' group by mon,carxno
 
-declare @tcount int
-declare @minno int 
+insert into @tmp(gno,carxno)
+select '2',carxno from @tmp group by carxno
 
-set @tcount = (select COUNT(*) from @tmp)
-set @minno = (select MIN(recno) from @tmp )
+update @tmp set fixadate='zzzzzzzzz' where gno = '1' or gno = '2'
+update @tmp set mon='zzzzzzzzz' where gno = '2'
 
-declare @i int
-set @i = 0
-while((select COUNT(*) from @tmp) > 0)
-begin
-	set @tcount = (select COUNT(*) from @tmp)
-	set @minno = (select MIN(recno) from @tmp )
-	
-	insert into @result(gno,mon,fixadate,carno,product,miles,tgg,price,memo)
-	select gno,mon,fixadate,carno,product,miles,tgg,price,memo from @tmp where recno = @minno
-	insert into @result(gno,mon,fixadate,carno,product,miles,tgg,price,memo)
-	values('1',null,null,null,null,null,null,null,null)
-	
-	delete @tmp where recno = @minno
-end	
-	
-select * from @result;
+select * from @tmp order by carxno,mon,gno;
 
 
 
 --******************************************************************************
 z_fixa_va04:--z_fixa_va04
 
-declare @t_bdate nvarchar(10)
-declare @t_edate nvarchar(10)
+declare @t_bmon nvarchar(10)
+declare @t_emon nvarchar(10)
+declare @t_bfixadate nvarchar(10)
+declare @t_efixadate nvarchar(10)
 declare @t_carplateno nvarchar(20)
 
-set @t_bdate = case when '#non'=[3] then '' else [3] end
-set @t_edate = case when '#non'=[4] then char(255) else [4] end
-set @t_carplateno = case when '#non'=[7] then '' else [7] end
+
+set @t_bmon = case when '#non'=[3] then '' else [3] end
+set @t_emon = case when '#non'=[4] then char(255) else [4] end
+set @t_bfixadate = case when '#non'=[5] then '' else [5] end
+set @t_efixadate = case when '#non'=[6] then char(255) else [6] end
+set @t_carplateno = case when '#non'=[8] then '' else [8] end
 
 ---------------------------------------------------------------------------------
 
 declare @tmp table(
 	gno nvarchar(1),
-	recno int,
 	mon nvarchar(10),
 	fixadate nvarchar(10),
-	carplateno nvarchar(20),
-	cardno nvarchar(20),
+	plate nvarchar(20),
 	product nvarchar(50),
 	miles float,
 	tgg nvarchar(90),
 	price float,
 	memo nvarchar(200)
 )
-
 insert into @tmp
-select '0',DENSE_RANK() over(order by mon),a.mon,a.fixadate,a.carplateno,a.cardno,b.product,a.miles,a.tgg,b.price,b.memo
+select '0',a.mon,a.fixadate,a.carplateno,b.product,a.miles,a.tgg,b.price,b.memo
 from fixa a 
 left join fixas b on a.noa = b.noa
-where (a.carplateno = @t_carplateno) and (a.fixadate between @t_bdate and @t_edate)
+where (len(@t_carplateno) = 0 or a.carplateno = @t_carplateno) and (a.mon between @t_bmon and @t_emon)and  (a.fixadate between @t_bfixadate and @t_efixadate)
 
 update @tmp set mon = SUBSTRING(mon,1,3)+'.'+SUBSTRING(mon,5,6)
 
-declare @result table(
-	gno nvarchar(1),
-	mon nvarchar(10),
-	fixadate nvarchar(10),
-	carplateno nvarchar(20),
-	cardno nvarchar(20),
-	product nvarchar(50),
-	miles float,
-	tgg nvarchar(90),
-	price float,
-	memo nvarchar(200)
-)
+insert into @tmp(gno,mon,plate)
+select '1',mon,plate from @tmp where gno = '0' group by mon,plate
 
-declare @tcount int
-declare @minno int 
+insert into @tmp(gno,plate)
+select '2',plate from @tmp group by plate
 
-set @tcount = (select COUNT(*) from @tmp)
-set @minno = (select MIN(recno) from @tmp )
+update @tmp set fixadate='zzzzzzzzz' where gno = '1' or gno = '2'
+update @tmp set mon='zzzzzzzzz' where gno = '2'
 
-declare @i int
-set @i = 0
-while((select COUNT(*) from @tmp) > 0)
-begin
-	set @tcount = (select COUNT(*) from @tmp)
-	set @minno = (select MIN(recno) from @tmp )
-	
-	insert into @result(gno,mon,fixadate,carplateno,cardno,product,miles,tgg,price,memo)
-	select gno,mon,fixadate,carplateno,cardno,product,miles,tgg,price,memo from @tmp where recno = @minno
-	insert into @result(gno,mon,fixadate,carplateno,cardno,product,miles,tgg,price,memo)
-	values('1',null,null,null,null,null,null,null,null,null)
-	
-	delete @tmp where recno = @minno
-end	
-	
-select * from @result;
+select * from @tmp order by plate,mon,gno;
