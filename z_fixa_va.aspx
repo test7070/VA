@@ -15,8 +15,8 @@
 		<script src="css/jquery/ui/jquery.ui.widget.js"></script>
 		<script src="css/jquery/ui/jquery.ui.datepicker_tw.js"></script>
 		<script type="text/javascript">
-			aPop = new Array(['txtXcarno', 'lblXcarno', 'car2', 'a.noa,driverno,driver', 'txtXcarno', 'car2_b.aspx']
-			,['txtXcarplateno', 'lblXcarplate', 'carplate', 'noa,carplate,driver', 'txtXcarplateno', 'carplate_b.aspx']
+			aPop = new Array(['txtCarno', 'lblCarno', 'car2', 'a.noa,driverno,driver', 'txtCarno', 'car2_b.aspx']
+			,['txtCarplateno', 'lblCarplate', 'carplate', 'noa,carplate,driver', 'txtCarplateno', 'carplate_b.aspx']
 			,['txtXproductno', 'lblXproductno', 'fixucc', 'noa,namea', 'txtXproductno', 'fixucc_b.aspx']);
 			$(document).ready(function() {
 				_q_boxClose();
@@ -34,64 +34,32 @@
                         type : '0',
                         name : 'xname',
                         value : r_name 
-                    }, {/*1 [3][4]*/
+                    }, {/*1-1[3][4]*/
                         type : '1',
-                        name : 'date'
-                    }, {/*2 [5][6]*/
-                        type : '2',
-                        name : 'tgg',
-                        dbf : 'tgg',
-                        index : 'noa,comp',
-                        src : 'tgg_b.aspx'
-                    }, {/*3 [7]*/
+                        name : 'mon'
+                    }, {/*1-2 [5][6]*/
+                        type : '1',
+                        name : 'fixadate'
+                    }, {/*1-3 [7]*/
                         type : '6',
-                        name : 'xcarno'
-                    }, {/*4 [8]*/
+                        name : 'carno'
+                    }, {/*1-4 [8]*/
                         type : '6',
-                        name : 'xmoney'
-                    }, {/*5 [9]*/
-                        type : '8',
-                        name : 'xoption01',
-                        value : q_getMsg('toption01').split('&')
-                    }, {/*6 [10]*/
-                        type : '6',
-                        name : 'xtireno'
-                    }, {/*7 [11][12]*/
-                        type : '2',
-                        name : 'fixucc',
-                        dbf : 'fixucc',
-                        index : 'noa,namea',
-                        src : 'fixucc_b.aspx'
-                    }, {/*8 [13]*/
-                        type : '6',
-                        name : 'xproduct'
-                    }, {/*2 [14][15]*/
-                        type : '2',
-                        name : 'driver',
-                        dbf : 'driver',
-                        index : 'noa,namea',
-                        src : 'driver_b.aspx'
+                        name : 'carplateno'
                     }]
                 });
                 q_popAssign();
 				q_getFormat();
 				q_langShow();
 
+				
 				$('#txtMon1').mask('999/99');
 				$('#txtMon2').mask('999/99');
-				$('#txtDate1').mask('999/99/99');
-                $('#txtDate1').datepicker();
-                $('#txtDate2').mask('999/99/99');
-                $('#txtDate2').datepicker();
-                
-                $('#txtYdate1').mask('999/99/99');
-                $('#txtYdate1').datepicker();
-                $('#txtYdate2').mask('999/99/99');
-                $('#txtYdate2').datepicker();
-				$('#txtYfixadate1').mask('999/99/99');
-                $('#txtYfixadate1').datepicker();
-                $('#txtYfixadate2').mask('999/99/99');
-                $('#txtYfixadate2').datepicker();
+			
+				$('#txtFixadate1').mask('999/99/99');
+                $('#txtFixadate1').datepicker();
+                $('#txtFixadate2').mask('999/99/99');
+                $('#txtFixadate2').datepicker();
                 
 				var t_date, t_year, t_month, t_day;
 				t_date = new Date();
@@ -115,20 +83,6 @@
 				t_day = t_day > 9 ? t_day + '' : '0' + t_day;
 				$('#txtMon2').val(t_year + '/' + t_month);
 				
-				$('#btnOk').hide();
-                $('#btnOk2').click(function(e) {
-                    switch($('#q_report').data('info').radioIndex) {
-                        case 8:
-                            $('#cmbPaperSize').val('A4');
-                            $('#chkLandScape').prop('checked',true);
-                            break;
-                        default:
-                            $('#cmbPaperSize').val('A4');
-                            $('#chkLandScape').prop('checked',false);
-                            break;
-                    }
-                    $('#btnOk').click();
-                });
 			}
 
 			function q_boxClose(s2) {
@@ -149,7 +103,6 @@
 				<div id="q_report"></div>
 			</div>
 			<div class="prt" style="margin-left: -40px;">
-                <input type="button" id="btnOk2" style="float:left;font-size:16px;font-weight: bold;color: blue;cursor: pointer;width:50px;height:30px;" value="查詢"/>
                 <!--#include file="../inc/print_ctrl.inc"-->
             </div>
 		</div>
