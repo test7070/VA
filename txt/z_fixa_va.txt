@@ -95,3 +95,49 @@ update @tmp set fixadate='zzzzzzzzz' where gno = '1' or gno = '2'
 update @tmp set mon='zzzzzzzzz' where gno = '2'
 
 select * from @tmp order by plate,mon,gno;
+
+
+
+--******************************************************************************
+z_fixa_va05:--z_fixa_va05
+
+
+declare @t_bindate nvarchar(50)
+declare @t_eindate nvarchar(50)
+
+set @t_bindate = case when '#non'=[9] then '' else [9] end
+set @t_eindate = case when '#non'=[10] then char(255) else [10] end
+
+---------------------------------------------------------------------------------
+
+declare @tmp table(
+	gno nvarchar(1),
+	indate nvarchar(50),
+	brand nvarchar(60),
+--	輪胎規格
+	price float,
+	tireno nvarchar(30),
+--	再生胎號
+--  花紋	
+	outdate nvarchar(10),
+	carxno nvarchar(10),
+	plate nvarchar(20),
+	miles float,
+	memo nvarchar(200)	
+)
+
+insert into @tmp
+select '0',a.indate,b.brand,b.price,b.tireno,c.outdate,c.carno,c.carplateno,c.miles,b.memo
+from fixin a
+left join fixins b on a.noa = b.noa
+left join fixout c
+	inner join fixouts d on c.noa = d.noa
+on b.tireno = d.tireno
+where(a.indate between @t_bindate and @t_eindate)
+
+select gno,indate,brand,price,tireno,outdate,
+case when len(carxno)>0 and len(plate)>0 then carxno+'/'+plate 
+	 when len(carxno)>0 and len(plate)=0 then carxno 
+	 when len(carxno)=0 and len(plate)>0 then plate
+end as carxno 
+,miles,memo from @tmp;

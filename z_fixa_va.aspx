@@ -46,6 +46,9 @@
                     }, {/*1-4 [8]*/
                         type : '6',
                         name : 'carplateno'
+                    },{/*2-1 [9][10]*/
+                        type : '1',
+                        name : 'indate'
                     }]
                 });
                 q_popAssign();
@@ -60,6 +63,10 @@
                 $('#txtFixadate1').datepicker();
                 $('#txtFixadate2').mask('999/99/99');
                 $('#txtFixadate2').datepicker();
+                $('#txtIndate1').mask('999/99/99');
+                $('#txtIndate1').datepicker();
+                $('#txtIndate2').mask('999/99/99');
+                $('#txtIndate2').datepicker();
                 
 				var t_date, t_year, t_month, t_day;
 				t_date = new Date();
