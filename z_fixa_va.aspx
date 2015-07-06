@@ -49,6 +49,16 @@
                     },{/*2-1 [9][10]*/
                         type : '1',
                         name : 'indate'
+                    },{/*2-2 [11][12]*/
+                        type : '1',
+                        name : 'outdate'
+                    },{/*2-3 [13]*/
+                        type : '6',
+                        name : 'deadline'
+                    }, {/*2-4 [14]*/
+                        type : '8',
+                        name : 'xoption01',
+                        value : q_getMsg('toption01').split('&')
                     }]
                 });
                 q_popAssign();
@@ -63,11 +73,20 @@
                 $('#txtFixadate1').datepicker();
                 $('#txtFixadate2').mask('999/99/99');
                 $('#txtFixadate2').datepicker();
+                               
                 $('#txtIndate1').mask('999/99/99');
                 $('#txtIndate1').datepicker();
                 $('#txtIndate2').mask('999/99/99');
                 $('#txtIndate2').datepicker();
                 
+				$('#txtOutdate1').mask('999/99/99');
+                $('#txtOutdate1').datepicker();
+                $('#txtOutdate2').mask('999/99/99');
+                $('#txtOutdate2').datepicker();
+                
+                $('#txtDeadline').mask('999/99/99');
+                $('#txtDeadline').datepicker();
+				
 				var t_date, t_year, t_month, t_day;
 				t_date = new Date();
 				t_date.setDate(1);
@@ -89,6 +108,15 @@
 				t_day = t_date.getUTCDate();
 				t_day = t_day > 9 ? t_day + '' : '0' + t_day;
 				$('#txtMon2').val(t_year + '/' + t_month);
+				
+				t_date = new Date();
+				t_year = t_date.getUTCFullYear() - 1911;
+				t_year = t_year > 99 ? t_year + '' : '0' + t_year;
+				t_month = t_date.getUTCMonth() + 1;
+				t_month = t_month > 9 ? t_month + '' : '0' + t_month;
+				t_day = t_date.getUTCDate();
+				t_day = t_day > 9 ? t_day + '' : '0' + t_day;
+				$('#txtDeadline').val(t_year + '/' + t_month + '/' + t_day);
 				
 			}
 
