@@ -123,7 +123,8 @@ declare @tmp table(
 	brand nvarchar(60),
 --	輪胎規格
 	price float,
-	tireno nvarchar(30),
+	tireno1 nvarchar(30),
+	tireno2 nvarchar(30),
 --  花紋	
 	outdate nvarchar(10),
 	carxno nvarchar(10),
@@ -133,7 +134,7 @@ declare @tmp table(
 	tiretype nvarchar(10)
 )
 
---已運算截止日為優先
+--已截止日為優先
 if(@t_eindate > @t_deadline)
 begin
 	set @t_eindate = @t_deadline
@@ -142,59 +143,90 @@ if(@t_eoutdate > @t_deadline)
 begin
 	set @t_eoutdate = @t_deadline
 end
-
---將資料插入@tmp
+ 
 insert into @tmp
-select '0',a.indate,b.brand,b.price,b.tireno,c.outdate,c.carno,c.carplateno,c.miles,b.memo,b.tiretype
+select '0',a.indate,b.brand,b.price,
+	case when tiretype = '01' then b.tireno 
+	end as tireno1,
+	case when tiretype = '02' then b.tireno 
+	end as tireno2
+,c.outdate,c.carno,c.carplateno,c.miles,b.memo,b.tiretype
 from fixin a
 left join fixins b on a.noa = b.noa
 left join fixout c
 	inner join fixouts d on c.noa = d.noa
 on b.tireno = d.tireno
 where (len(b.tireno) > 0 ) 
-	  and (a.indate between @t_bindate and @t_eindate)
+      and (a.indate between @t_bindate and @t_eindate)
       and (c.outdate is null or c.outdate between @t_boutdate and @t_eoutdate)
 
---顯示結果
-if(patindex('%sel1%',@t_option01) = 1 and patindex('%sel2%',@t_option01) = 0)
+--僅顯示庫存
+if(patindex('%sel1%',@t_option01) = 1 and patindex('%sel2%',@t_option01) = 0) 
 begin
-	update @tmp set gno = '1' where gno = '0'
 	
-	insert into @tmp(gno,price,tireno)
-	select '3',SUM(price),(select COUNT(*) from @tmp)
-	from @tmp
-	where gno = '1'
+	update @tmp set outdate = null where gno = '0'
+	update @tmp set carxno = null where gno = '0'
+	update @tmp set miles = null where gno = '0'
+	update @tmp set memo = null where gno = '0'
 	
-	select gno,indate,brand,price,tireno,
-	case when tiretype = '01' then tireno --新胎再生胎判定
-	end as tireno1,
-	case when tiretype = '02' then tireno 
-	end as tireno2
-	,outdate,
-	case when len(carxno)>0 and len(plate)>0 then carxno+'/'+plate 
-		 when len(carxno)>0 and len(plate)=0 then carxno 
-		 when len(carxno)=0 and len(plate)>0 then plate
-	end as carxno
-	,miles,memo from @tmp order by gno,indate,outdate
+	insert into @tmp(gno,price,tireno1,tireno2)
+	select '1',SUM(price),
+		   (select COUNT(tireno1) from @tmp),
+		   (select COUNT(tireno2) from @tmp)
+	from @tmp where gno = '0'
+	
+	insert into @tmp(gno,price,tireno1,tireno2)
+	select '3',SUM(price),
+		   (select COUNT(tireno1) from @tmp where gno = '0'),
+		   (select COUNT(tireno2) from @tmp where gno = '0')
+	from @tmp where gno = '0'
+		   	
+	select gno,
+		   case when @t_deadline = '' then '' else ('運算截止日：'+ @t_deadline) end dl,
+		   case when @t_bindate ='' or @t_eindate = '' then '' else ('進貨日期：'+@t_bindate+'~'+@t_eindate) end bei,
+           case when @t_boutdate = '' or @t_eoutdate = ''  then '' else ('領用日期：'+@t_boutdate+'~'+@t_eoutdate) end beo,
+	       indate,brand,
+		   reverse(substring(reverse(convert(nvarchar(30),CONVERT(money,price),1)),4,30)) price ,
+	       tireno1,tireno2,outdate,carxno,miles,memo 
+	from @tmp order by gno,indate,outdate
 end
 
-else 
-begin
-	insert into @tmp(gno,price,tireno,outdate)
-	select '2',SUM(price),(select COUNT(*) from @tmp),(select COUNT(*) from @tmp where len(outdate) > 0) 
-	from @tmp
-	where gno = '0'
+--僅顯示領用
+else
+begin	
+	insert into @tmp(gno,price,tireno1,tireno2)
+	select '1',SUM(price),
+		   (select COUNT(tireno1) from @tmp),
+		   (select COUNT(tireno2) from @tmp)
+	from @tmp where gno = '0'
 	
-	select gno,indate,brand,price,tireno,
-	case when tiretype = '01' then tireno --新胎再生胎判定
-	end as tireno1,
-	case when tiretype = '02' then tireno 
-	end as tireno2
-	,outdate,
-	case when len(carxno)>0 and len(plate)>0 then carxno+'/'+plate 
-		 when len(carxno)>0 and len(plate)=0 then carxno 
-		 when len(carxno)=0 and len(plate)>0 then plate
-	end as carxno
-	,miles,memo from @tmp order by gno,indate,outdate
+	insert into @tmp(gno,price,tireno1,tireno2)
+	select '2',SUM(price),
+		   (select COUNT(tireno1) from @tmp where outdate is not null),
+		   (select COUNT(tireno2) from @tmp where outdate is not null)
+	from @tmp where gno = '0' and outdate is not null
+	
+	insert into @tmp(gno,price,tireno1,tireno2)
+	select '3',
+			case when (select SUM(price) from @tmp where gno = '0' and outdate is not null) is null
+			then
+			(select SUM(price) from @tmp where gno = '0') - 0 
+			else
+			(select SUM(price) from @tmp where gno = '0') - (select SUM(price) from @tmp where gno = '0' and outdate is not null)
+			end,
+		   (select COUNT(tireno1) from @tmp where gno = '0') - (select COUNT(tireno1) from @tmp where gno = '0' and outdate is not null),
+		   (select COUNT(tireno2) from @tmp where gno = '0') - (select COUNT(tireno2) from @tmp where gno = '0' and outdate is not null)	   
+	
+	select gno,
+		   case when @t_deadline = '' then '' else ('運算截止日：'+ @t_deadline) end dl,
+		   case when @t_bindate ='' or @t_eindate = '' then '' else ('進貨日期：'+@t_bindate+'~'+@t_eindate) end bei,
+           case when @t_boutdate = '' or @t_eoutdate = ''  then '' else ('領用日期：'+@t_boutdate+'~'+@t_eoutdate) end beo,
+	       indate,brand,
+	       reverse(substring(reverse(convert(nvarchar(30),CONVERT(money,price),1)),4,30)) price,
+	       tireno1,tireno2,outdate,
+	       case when len(carxno)>0 and len(plate)>0 then carxno+'/'+plate 
+		        when len(carxno)>0 and len(plate)=0 then carxno 
+		        when len(carxno)=0 and len(plate)>0 then plate end carxno
+	,miles,memo 
+	from @tmp order by gno,indate,outdate
 end;
-
