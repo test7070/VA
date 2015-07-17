@@ -44,10 +44,138 @@ insert into @tmp(gno,mon,driverno,money)
 select '1',mon,driverno,SUM(money)
 from @tmp where gno = '0' group by gno,mon,driverno
 
-update @tmp set mon = SUBSTRING(mon,1,3) + '.' + SUBSTRING(mon,5,2) + '月份外車運費支付明細'
+update @tmp set mon = SUBSTRING(mon,1,3) + '.' + SUBSTRING(mon,5,2) + '月份外車對帳明細單'
 
 select gno,mon,driver,tel,trandate,carno,product,straddr,endaddr,
 	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,price),1)),4,15)) price,
 	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,money),1)),4,15)) money,
 	   memo
 from @tmp order by mon,driverno,gno,trandate  ;
+
+
+
+-*******************************************************************************
+
+z_tre_va02:--z_tre_va02
+
+declare @t_bdate nvarchar(10)
+declare @t_edate nvarchar(10)
+declare @t_bdriverno nvarchar(20)
+declare @t_edriverno nvarchar(20)
+
+set @t_bdate = case when '#non'=[3] then '' else [3] end
+set @t_edate = case when '#non'=[4] then char(255) else [4] end
+set @t_bdriverno = case when '#non'=[5] then '' else [5] end
+set @t_edriverno = case when '#non'=[6] then char(255) else [6] end
+
+---------------------------------------------------------------------------------
+
+declare @tmp table(
+	gno nvarchar(1),
+	yymm nvarchar(30),
+	bdate nvarchar(30),
+	edate nvarchar(30),
+	rno nvarchar(10),
+	driverno nvarchar(20),
+	driver nvarchar(20),
+	money float,
+	total float,
+--	付款日期
+--	付款方式
+--	請款金額
+	memo nvarchar(200)	
+)
+
+insert into @tmp
+select '9',c.mon,min(c.trandate),max(c.trandate),'',a.driverno,a.driver,a.money,a.total,a.memo
+from view_tre a
+left join view_tres b on a.noa = b.noa  
+left join view_trans c on b.tranno = c.noa and b.trannoq = c.noq
+where (a.datea between @t_bdate and @t_edate) and (a.driverno between @t_bdriverno and @t_edriverno)
+group by c.mon,a.driverno,a.driver,a.money,a.total,a.memo
+
+insert into @tmp (gno,yymm,bdate,edate)
+select '1',yymm,MIN(bdate),MAX(edate)
+from @tmp where gno = '9' group by yymm
+
+insert into @tmp (gno,yymm,driverno,driver,money,total)
+select '0',yymm,driverno,driver,SUM(money),SUM(total)
+from @tmp where gno = '9' group by yymm,driverno,driver
+
+delete @tmp where gno = '9'
+
+declare @i int
+declare @cnt int
+declare @yymm nvarchar(30)
+declare @bdate nvarchar(30)
+declare @edate nvarchar(30)
+
+declare cursor_table cursor for 
+select yymm,bdate,edate from @tmp where gno = '1'
+open cursor_table 
+fetch next from cursor_table 
+into @yymm,@bdate,@edate
+while(@@FETCH_STATUS <> -1) 
+begin
+	set @i = 0
+	set @cnt = (select COUNT(*) from @tmp where gno = '0')
+	
+	while(@i < @cnt)
+	begin
+		update @tmp set bdate = @bdate where yymm = @yymm and gno = '0'
+		update @tmp set edate = @edate where yymm = @yymm and gno = '0'
+		
+		set @i = @i + 1
+	end
+	
+	
+	fetch next from cursor_table 
+	into @yymm,@bdate,@edate
+end 
+close cursor_table 
+deallocate cursor_table
+
+
+declare @driverno nvarchar(20)
+declare @xyymm nvarchar(30)
+set @xyymm = 'yymm'
+
+declare cursor_table cursor for 
+select yymm,driverno from @tmp where gno = '0'
+open cursor_table 
+fetch next from cursor_table 
+into @yymm,@driverno
+while(@@FETCH_STATUS <> -1) 
+begin
+	if(@yymm != @xyymm)
+	begin
+		set @i = 1
+		update @tmp set rno = @i where yymm = @yymm and driverno = @driverno
+		set @i = @i + 1
+		set @xyymm = @yymm
+	end
+	else
+	begin
+		update @tmp set rno = @i where yymm = @yymm and driverno = @driverno
+		set @i = @i + 1
+		set @xyymm = @yymm
+	end
+	
+	fetch next from cursor_table 
+	into @yymm,@driverno
+end 
+close cursor_table 
+deallocate cursor_table
+
+delete @tmp where gno = '1'
+
+insert into @tmp(gno,yymm,money,total)
+select '1',yymm,SUM(money),SUM(total)
+from @tmp where gno = '0' group by yymm
+
+update @tmp set yymm = SUBSTRING(yymm,1,3) + '年' + SUBSTRING(yymm,5,2) + '外車運費支付明細'
+
+select gno,yymm,('計算期間：' + bdate + '~' + edate) btoe ,rno,driver,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,money),1)),4,15)) money,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,total),1)),4,15)) total
+from @tmp order by yymm,gno  ;
