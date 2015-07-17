@@ -14,7 +14,7 @@ set @t_edriverno = case when '#non'=[6] then char(255) else [6] end
 
 declare @tmp table(
 	gno nvarchar(1),
-	mon nvarchar(10),
+	mon nvarchar(30),
 	driverno nvarchar(20),
 	driver nvarchar(20),
 	tel nvarchar(20),
@@ -44,10 +44,10 @@ insert into @tmp(gno,mon,driverno,money)
 select '1',mon,driverno,SUM(money)
 from @tmp where gno = '0' group by gno,mon,driverno
 
-update @tmp set mon = SUBSTRING(mon,1,3) + '.' + SUBSTRING(mon,5,2) 
+update @tmp set mon = SUBSTRING(mon,1,3) + '.' + SUBSTRING(mon,5,2) + '月份外車運費支付明細'
 
 select gno,mon,driver,tel,trandate,carno,product,straddr,endaddr,
 	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,price),1)),4,15)) price,
 	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,money),1)),4,15)) money,
 	   memo
-from @tmp order by mon,driverno,gno  ;
+from @tmp order by mon,driverno,gno,trandate  ;
