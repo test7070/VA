@@ -1,0 +1,60 @@
+z_trd_va01:--z_trd_va01
+
+declare @t_bcustno nvarchar(20)
+declare @t_ecustno nvarchar(20)
+declare @t_bdate nvarchar(10)
+declare @t_edate nvarchar(10)
+declare @t_vccano nvarchar(10)
+
+set @t_bcustno = case when '#non'=[3] then '' else [3] end
+set @t_ecustno = case when '#non'=[4] then char(255) else [4] end
+set @t_bdate = case when '#non'=[5] then '' else [5] end
+set @t_edate = case when '#non'=[6] then char(255) else [6] end
+set @t_vccano = case when '#non'=[7] then '' else [7] end
+
+---------------------------------------------------------------------------------
+
+declare @tmp table(
+	gno nvarchar(1),
+	noa nvarchar(30),
+	mon nvarchar(10),
+	custno nvarchar(30),
+	custname nvarchar(100),
+	custaddr nvarchar(100),
+	custtel nvarchar(100),
+	trandate nvarchar(10),
+	carno nvarchar(20),
+	product nvarchar(20),
+	straddr nvarchar(max),
+	endaddr nvarchar(max),
+	price decimal(18,3),
+	mount decimal(18,3),
+	total float,
+	memo nvarchar(200),
+	vno nvarchar(max),
+	tmoney float,
+	tax float,
+	ttotal float
+)
+
+insert into @tmp 
+select '0',b.noa,b.mon,a.noa,a.comp,a.addr_comp,
+	   case when LEN(a.tel) = 0 then a.mobile else a.tel end,
+	   d.trandate,d.carno,d.product,d.straddr,d.endaddr,d.price,d.mount,d.total,d.memo,'','','',''
+from cust a
+left join view_trd b on a.noa = b.custno
+left join view_trds c on b.noa = c.noa
+left join view_trans d on c.tranno = d.noa and c.trannoq = d.noq
+where (a.noa between @t_bcustno and @t_ecustno) and (b.datea between @t_bdate and @t_edate) and (b.vccano = @t_vccano)
+
+insert into @tmp(gno,noa,vno,tmoney,tax,ttotal)
+select '1',noa,vccano,money,tax,total
+from view_trd where (custno between @t_bcustno and @t_ecustno) and (datea between @t_bdate and @t_edate) and (vccano = @t_vccano)
+
+select gno,noa,mon,custname,custaddr,custtel,trandate,carno,product,straddr,endaddr,price,mount,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,total),1)),4,15)) total,
+	   memo,vno,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,tmoney),1)),4,15)) tmoney,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,tax),1)),4,15)) tax,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,ttotal),1)),4,15)) ttotal
+from @tmp order by noa,gno  ;
