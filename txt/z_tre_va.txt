@@ -4,11 +4,13 @@ declare @t_bdate nvarchar(10)
 declare @t_edate nvarchar(10)
 declare @t_bdriverno nvarchar(20)
 declare @t_edriverno nvarchar(20)
+declare @t_po nvarchar(20)
 
 set @t_bdate = case when '#non'=[3] then '' else [3] end
 set @t_edate = case when '#non'=[4] then char(255) else [4] end
 set @t_bdriverno = case when '#non'=[5] then '' else [5] end
 set @t_edriverno = case when '#non'=[6] then char(255) else [6] end
+set @t_po = case when '#non'=[7] then '' else [7] end
 
 ---------------------------------------------------------------------------------
 
@@ -19,40 +21,110 @@ declare @tmp table(
 	driver nvarchar(20),
 	tel nvarchar(20),
 	trandate nvarchar(10),
+	po nvarchar(20),
 	carno nvarchar(20),
 	product nvarchar(40),
---  工程案號	
 	straddr nvarchar(50),
 	endaddr nvarchar(50),
---  重量/台
+    mount float,
 	price float,	
 	money float,
+	carchgno nvarchar(max),
+	plusmoney float,
+	minusmoney float,
 	memo nvarchar(200)
 )
 
 insert into @tmp
 select '0',c.mon,c.driverno,c.driver,
 	   case when LEN(d.tel) = 0 then d.mobile else d.tel end,
-	   c.trandate,c.carno,c.product,c.straddr,c.endaddr,c.price,c.total2,c.memo
+	   c.trandate,c.po,c.carno,c.product,c.straddr,c.endaddr,c.mount,c.price3,c.total2,a.carchgno,a.plusmoney,a.minusmoney,a.memo
 from view_tre a
 left join view_tres b on a.noa = b.noa  
 left join view_trans c on b.tranno = c.noa and b.trannoq = c.noq
 left join driver d on a.driver = d.namea
-where (a.datea between @t_bdate and @t_edate) and (a.driverno between @t_bdriverno and @t_edriverno)
+where (a.datea between @t_bdate and @t_edate) and (a.driverno between @t_bdriverno and @t_edriverno) and (LEN(@t_po)=0 or c.po = @t_po)
+
+declare @mon nvarchar(30)
+declare @driverno nvarchar(20)
+declare @carchgno nvarchar(max)
+declare @xcarchgno nvarchar(max)
+declare @str nvarchar(max)
+declare @sub nvarchar(max)
+declare @pmny float
+declare @mmny float
+
+set @xcarchgno = 'zzzzzzzzzzzz'
+
+declare cursor_table cursor for 
+select mon,driverno,carchgno from @tmp where gno = '0'
+open cursor_table 
+fetch next from cursor_table 
+into @mon,@driverno,@carchgno
+while(@@FETCH_STATUS <> -1) 
+begin
+		
+	if(@xcarchgno != @carchgno and LEN(@carchgno) = 12)
+	begin
+		set @str = @carchgno 
+		set @pmny = (select plusmoney from carchg where noa = @str)
+		set @mmny = (select minusmoney from carchg where noa = @str)
+		insert into @tmp(gno,mon,driverno,carchgno,plusmoney,minusmoney)
+		values('1',@mon,@driverno,@carchgno,@pmny,@mmny)
+		set @xcarchgno = @carchgno
+	end
+	else if(@xcarchgno != @carchgno and LEN(@carchgno) > 12)
+	begin
+		set @str = @carchgno 
+		while (LEN(@str) > 0)
+		begin
+			set @sub = SUBSTRING(@str,1,12)						
+			
+			if(LEN(@str) > 12)
+			begin
+				set @pmny = (select plusmoney from carchg where noa = @sub)
+				set @mmny = (select minusmoney from carchg where noa = @sub)
+				insert into @tmp(gno,mon,driverno,carchgno,plusmoney,minusmoney)
+				values('1',@mon,@driverno,@sub,@pmny,@mmny)
+				set @str = RIGHT(@str,LEN(@str)-13)
+			end
+			else if(LEN(@str) = 12)
+			begin
+				set @pmny = (select plusmoney from carchg where noa = @sub)
+				set @mmny = (select minusmoney from carchg where noa = @sub)
+				insert into @tmp(gno,mon,driverno,carchgno,plusmoney,minusmoney)
+				values('1',@mon,@driverno,@sub,@pmny,@mmny)
+				set @str = ''
+			end
+			set @xcarchgno = @carchgno			
+		end
+	end
+	else if (@xcarchgno = @carchgno)
+	begin
+		 set @xcarchgno = @carchgno	
+	end
+	
+	fetch next from cursor_table 
+	into @mon,@driverno,@carchgno
+end 
+close cursor_table 
+deallocate cursor_table
 
 insert into @tmp(gno,mon,driverno,money)
-select '1',mon,driverno,SUM(money)
+select '2',mon,driverno,SUM(money)
 from @tmp where gno = '0' group by gno,mon,driverno
 
 update @tmp set mon = SUBSTRING(mon,1,3) + '.' + SUBSTRING(mon,5,2) + '月份外車對帳明細單'
 
-select gno,mon,driver,tel,trandate,carno,product,straddr,endaddr,
+
+
+select gno,mon,driver,tel,trandate,po,carno,product,straddr,endaddr,mount,
 	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,price),1)),4,15)) price,
 	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,money),1)),4,15)) money,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,plusmoney),1)),4,15)) plusmoney,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,minusmoney),1)),4,15)) minusmoney,
 	   memo
-from @tmp order by mon,driverno,gno,trandate  ;
-
-
+from @tmp order by mon,driverno,gno,trandate ;
 
 -*******************************************************************************
 
@@ -91,7 +163,7 @@ select '9',c.mon,min(c.trandate),max(c.trandate),'',a.driverno,a.driver,a.money,
 from view_tre a
 left join view_tres b on a.noa = b.noa  
 left join view_trans c on b.tranno = c.noa and b.trannoq = c.noq
-where (a.datea between @t_bdate and @t_edate) and (a.driverno between @t_bdriverno and @t_edriverno)
+where (c.mon is not null) and (a.datea between @t_bdate and @t_edate) and (a.driverno between @t_bdriverno and @t_edriverno)
 group by c.mon,a.driverno,a.driver,a.money,a.total,a.memo
 
 insert into @tmp (gno,yymm,bdate,edate)

@@ -45,11 +45,11 @@ from cust a
 left join view_trd b on a.noa = b.custno
 left join view_trds c on b.noa = c.noa
 left join view_trans d on c.tranno = d.noa and c.trannoq = d.noq
-where (a.noa between @t_bcustno and @t_ecustno) and (b.datea between @t_bdate and @t_edate) and (b.vccano = @t_vccano)
+where (a.noa between @t_bcustno and @t_ecustno) and (b.datea between @t_bdate and @t_edate) and (LEN(@t_vccano) = 0 or b.vccano = @t_vccano)
 
 insert into @tmp(gno,noa,vno,tmoney,tax,ttotal)
 select '1',noa,vccano,money,tax,total
-from view_trd where (custno between @t_bcustno and @t_ecustno) and (datea between @t_bdate and @t_edate) and (vccano = @t_vccano)
+from view_trd where (custno between @t_bcustno and @t_ecustno) and (datea between @t_bdate and @t_edate) and (LEN(@t_vccano) = 0 or vccano = @t_vccano)
 
 select gno,noa,mon,custname,custaddr,custtel,trandate,carno,product,straddr,endaddr,price,mount,
 	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,total),1)),4,15)) total,
@@ -58,7 +58,6 @@ select gno,noa,mon,custname,custaddr,custtel,trandate,carno,product,straddr,enda
 	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,tax),1)),4,15)) tax,
 	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,ttotal),1)),4,15)) ttotal
 from @tmp order by noa,gno  ;
-
 
 
 -*******************************************************************************
