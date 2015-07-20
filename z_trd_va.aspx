@@ -46,7 +46,10 @@
                     }, {/*1-3 [7]*/
 						type : '6',
 						name : 'vccano'
-					}]
+					}, {/*1-4 [8][9]*/
+                        type : '1',
+                        name : 'mon'
+                    }]
                 });
                 q_popAssign();
 				q_getFormat();
@@ -59,7 +62,8 @@
                 $('#txtDate2').mask('999/99/99');
                 $('#txtDate2').datepicker();
                                
-						
+				$('#txtMon1').mask('999/99');
+				$('#txtMon2').mask('999/99');		
 				
 			}
 
