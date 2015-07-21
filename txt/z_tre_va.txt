@@ -30,6 +30,7 @@ declare @tmp table(
 	price float,	
 	money float,
 	carchgno nvarchar(max),
+	item nvarchar(max),
 	plusmoney float,
 	minusmoney float,
 	memo nvarchar(200)
@@ -38,7 +39,7 @@ declare @tmp table(
 insert into @tmp
 select '0',c.mon,c.driverno,c.driver,
 	   case when LEN(d.tel) = 0 then d.mobile else d.tel end,
-	   c.trandate,c.po,c.carno,c.product,c.straddr,c.endaddr,c.mount,c.price3,c.total2,a.carchgno,a.plusmoney,a.minusmoney,a.memo
+	   c.trandate,c.po,c.carno,c.product,c.straddr,c.endaddr,c.mount,c.price3,c.total2,a.carchgno,'',0,0,a.memo
 from view_tre a
 left join view_tres b on a.noa = b.noa  
 left join view_trans c on b.tranno = c.noa and b.trannoq = c.noq
@@ -51,8 +52,12 @@ declare @carchgno nvarchar(max)
 declare @xcarchgno nvarchar(max)
 declare @str nvarchar(max)
 declare @sub nvarchar(max)
+declare @date nvarchar(10)
+declare @pitem nvarchar(10)
+declare @mitem nvarchar(10)
 declare @pmny float
 declare @mmny float
+declare @memo nvarchar(200) 
 
 set @xcarchgno = 'zzzzzzzzzzzz'
 
@@ -62,15 +67,18 @@ open cursor_table
 fetch next from cursor_table 
 into @mon,@driverno,@carchgno
 while(@@FETCH_STATUS <> -1) 
-begin
-		
+begin	
 	if(@xcarchgno != @carchgno and LEN(@carchgno) = 12)
 	begin
 		set @str = @carchgno 
+		set @date = (select datea from carchg where noa = @str)
+		set @pitem = (select plusitem from carchg where noa = @str)
+		set @mitem = (select minusitem from carchg where noa = @str)
 		set @pmny = (select plusmoney from carchg where noa = @str)
 		set @mmny = (select minusmoney from carchg where noa = @str)
-		insert into @tmp(gno,mon,driverno,carchgno,plusmoney,minusmoney)
-		values('1',@mon,@driverno,@carchgno,@pmny,@mmny)
+		set @memo = (select memo from carchg where noa = @str)
+		insert into @tmp(gno,mon,driverno,trandate,carchgno,item,plusmoney,minusmoney,memo)
+		values('2',@mon,@driverno,@date,@carchgno,@pitem+@mitem,@pmny,@mmny,@memo)
 		set @xcarchgno = @carchgno
 	end
 	else if(@xcarchgno != @carchgno and LEN(@carchgno) > 12)
@@ -82,18 +90,26 @@ begin
 			
 			if(LEN(@str) > 12)
 			begin
+				set @date = (select datea from carchg where noa = @sub)
+				set @pitem = (select plusitem from carchg where noa = @sub)
+				set @mitem = (select minusitem from carchg where noa = @sub)
 				set @pmny = (select plusmoney from carchg where noa = @sub)
 				set @mmny = (select minusmoney from carchg where noa = @sub)
-				insert into @tmp(gno,mon,driverno,carchgno,plusmoney,minusmoney)
-				values('1',@mon,@driverno,@sub,@pmny,@mmny)
-				set @str = RIGHT(@str,LEN(@str)-13)
+				set @memo = (select memo from carchg where noa = @sub)
+				insert into @tmp(gno,mon,driverno,trandate,carchgno,item,plusmoney,minusmoney,memo)
+				values('2',@mon,@driverno,@date,@sub,@pitem+@mitem,@pmny,@mmny,@memo)
+				set @str = RIGHT(@str,LEN(@str)-13)	
 			end
 			else if(LEN(@str) = 12)
 			begin
+				set @date = (select datea from carchg where noa = @sub)
+				set @pitem = (select plusitem from carchg where noa = @sub)
+				set @mitem = (select minusitem from carchg where noa = @sub)
 				set @pmny = (select plusmoney from carchg where noa = @sub)
 				set @mmny = (select minusmoney from carchg where noa = @sub)
-				insert into @tmp(gno,mon,driverno,carchgno,plusmoney,minusmoney)
-				values('1',@mon,@driverno,@sub,@pmny,@mmny)
+				set @memo = (select memo from carchg where noa = @sub)
+				insert into @tmp(gno,mon,driverno,trandate,carchgno,item,plusmoney,minusmoney,memo)
+				values('2',@mon,@driverno,@date,@sub,@pitem+@mitem,@pmny,@mmny,@memo)			
 				set @str = ''
 			end
 			set @xcarchgno = @carchgno			
@@ -103,7 +119,7 @@ begin
 	begin
 		 set @xcarchgno = @carchgno	
 	end
-	
+
 	fetch next from cursor_table 
 	into @mon,@driverno,@carchgno
 end 
@@ -111,16 +127,72 @@ close cursor_table
 deallocate cursor_table
 
 insert into @tmp(gno,mon,driverno,money)
-select '2',mon,driverno,SUM(money)
+select '3',mon,driverno,SUM(money)
 from @tmp where gno = '0' group by gno,mon,driverno
 
+declare @xmon nvarchar(30)
+declare @xdriverno nvarchar(20)
+declare @plusmoney float
+declare @minusmoney float
+declare @totpmny float
+declare @totmmny float
+declare @cnt float
+
+set @xmon = 'zzzzzz'
+set @xdriverno = 'xxxx'
+
+declare cursor_table cursor for 
+select mon,driverno,plusmoney,minusmoney from @tmp where gno = '2'
+open cursor_table 
+fetch next from cursor_table 
+into @mon,@driverno,@plusmoney,@minusmoney
+while(@@FETCH_STATUS <> -1) 
+begin
+	if(@xmon != @mon or @xdriverno != @driverno)
+	begin
+		set @cnt = (select COUNT(*) from @tmp where gno = '2' and mon = @mon and driverno = @driverno)
+		set @totpmny = 0
+		set @totmmny = 0 
+		set @totpmny = @totpmny + @plusmoney
+		set @totmmny = @totmmny + @minusmoney
+		set @cnt = @cnt - 1
+		set @xmon = @mon
+		set @xdriverno = @driverno
+	end
+	else if (@xmon = @mon and @xdriverno = @driverno)
+	begin
+		set @totpmny = @totpmny + @plusmoney
+		set @totmmny = @totmmny + @minusmoney
+		set @cnt = @cnt - 1
+		set @xmon = @mon
+		set @xdriverno = @driverno
+	end
+	if(@cnt = 0)
+	begin
+		update @tmp set plusmoney = @totpmny where gno ='3' and mon = @xmon and driverno = @xdriverno
+		update @tmp set minusmoney = @totmmny where gno ='3' and mon = @xmon and driverno = @xdriverno
+	end	
+	
+	fetch next from cursor_table 
+	into @mon,@driverno,@plusmoney,@minusmoney
+end 
+close cursor_table 
+deallocate cursor_table
+
+insert into @tmp(gno,mon,driverno,money)
+select '4',mon,driverno,(money + plusmoney - minusmoney)
+from @tmp where gno = '3'
+
+insert into @tmp (gno,mon,driverno)
+select '1',mon,driverno
+from @tmp where gno ='3'
+
 update @tmp set mon = SUBSTRING(mon,1,3) + '.' + SUBSTRING(mon,5,2) + '月份外車對帳明細單'
-
-
 
 select gno,mon,driver,tel,trandate,po,carno,product,straddr,endaddr,mount,
 	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,price),1)),4,15)) price,
 	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,money),1)),4,15)) money,
+	   item,
 	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,plusmoney),1)),4,15)) plusmoney,
 	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,minusmoney),1)),4,15)) minusmoney,
 	   memo
