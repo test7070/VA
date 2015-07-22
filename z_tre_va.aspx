@@ -37,13 +37,13 @@
                     }, {/*1-1 [3][4]*/
                         type : '1',
                         name : 'date'
-                    }, {/*1-2 [8][9]*/
+                    }, {/*1-2 [5][6]*/
                         type : '2',
                         name : 'driver',
                         dbf : 'driver',
                         index : 'noa,namea',
                         src : 'driver_b.aspx'
-                    }, {/*1-3 [10]*/
+                    }, {/*1-3 [7]*/
                         type : '6',
                         name : 'xpo'
                     }]
@@ -71,7 +71,7 @@
 				t_month = t_month > 9 ? t_month + '' : '0' + t_month;
 				t_day = t_date.getUTCDate();
 				t_day = t_day > 9 ? t_day + '' : '0' + t_day;
-				$('#txtMon1').val(t_year + '/' + t_month);
+				$('#txtDate1').val(t_year + '/' + t_month + '/' + t_day);
 
 				t_date = new Date();
 				t_date.setDate(35);
@@ -82,7 +82,7 @@
 				t_month = t_month > 9 ? t_month + '' : '0' + t_month;
 				t_day = t_date.getUTCDate();
 				t_day = t_day > 9 ? t_day + '' : '0' + t_day;
-				$('#txtMon2').val(t_year + '/' + t_month);
+				$('#txtMon1').val(t_year + '/' + t_month);
 						
 				
 			}
