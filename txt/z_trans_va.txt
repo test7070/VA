@@ -44,8 +44,7 @@ select '0','','',a.driverno,a.driver,a.trandate,a.carno,a.straddr,a.endaddr,a.pt
        ,0
 from view_trans a 
 left join carsals b on (SUBSTRING(a.trandate,1,6) = b.noa) and (a.driver = b.driver)
-where (SUBSTRING(a.trandate,1,6) between @t_bmon and @t_emon) and (LEN(@t_carno) = 0 or a.carno = @t_carno) and (a.driverno between @t_bdriverno and @t_edriverno) and
-	  (b.noa between @t_bmon and @t_emon) and (b.driverno between @t_bdriverno and @t_edriverno) 
+where (SUBSTRING(a.trandate,1,6) between @t_bmon and @t_emon) and (LEN(@t_carno) = 0 or a.carno = @t_carno) and (a.driverno between @t_bdriverno and @t_edriverno)
 	  
 update @tmp1 set yy = SUBSTRING(trandate,1,3) 
 update @tmp1 set mm = SUBSTRING(trandate,5,2) 
@@ -217,3 +216,44 @@ set @t_edriverno = case when '#non'=[9] then char(255) else [9] end
 
 ---------------------------------------------------------------------------------
 
+declare @tmp table( 
+	gno nvarchar(1), 
+	mon nvarchar(50),  
+	driverno nvarchar(20), 
+	driver nvarchar(20),  
+	drivermoney float, 
+	plus float,
+	money float,
+	labheal float,
+	ticket float,
+	minus float, 
+	borr float, 
+	total float,
+	memo nvarchar(1)
+) 
+
+insert into @tmp
+select '0',a.noa,a.driverno,a.driver,a.drivermoney,a.plus,'0',a.labor + a.health,a.ticket,a.minus,a.carborr,0,a.memo
+from carsals a
+where (a.noa between @t_bmon and @t_emon)and (a.driverno between @t_bdriverno and @t_edriverno) 
+
+update @tmp set mon = SUBSTRING(mon,1,3) + '.' +SUBSTRING(mon,5,2) + '月司機業績/實發金額明細表'
+
+update @tmp set money = drivermoney + plus where gno = '0'
+update @tmp set total = money - labheal - ticket - minus - borr where gno = '0'
+
+insert into @tmp(gno,mon,drivermoney,plus,money,labheal,ticket,minus,borr,total)
+select '1',mon,SUM(drivermoney),SUM(plus),SUM(money),SUM(labheal),SUM(ticket),SUM(minus),SUM(borr),SUM(total)
+from @tmp where gno = '0' group by mon
+
+select gno,mon,driverno,driver,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,drivermoney),1)),4,15)) drivermoney, 
+       reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,plus),1)),4,15)) plus,
+       reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,money),1)),4,15)) money,
+       reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,labheal),1)),4,15)) labheal,
+       reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,ticket),1)),4,15)) ticket,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,minus),1)),4,15)) minus,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,borr),1)),4,15)) borr,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,total),1)),4,15)) total,
+	   memo
+from @tmp order by mon,gno ;
