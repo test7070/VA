@@ -224,11 +224,15 @@ begin
 	set @xnoa = 'zzzzzzzzzzzz'
 	set @xmon = 'zzzzzz'
 	
+	declare @custname nvarchar(100)
+	declare @custaddr nvarchar(100)
+	declare @custtel nvarchar(100)
+	
 	declare cursor_table cursor for 
-	select rno,noa,mon from @tmp where gno = '2'
+	select rno,noa,mon,custname,custaddr,custtel from @tmp where gno = '2'
 	open cursor_table 
 	fetch next from cursor_table 
-	into @rno,@noa,@mon
+	into @rno,@noa,@mon,@custname,@custaddr,@custtel
 	while(@@FETCH_STATUS <> -1) 
 	begin
 		if(@xnoa != @noa)
@@ -237,9 +241,10 @@ begin
 			set	@xnoa = @noa			
 		end				
 						
-		if((@cnt = 0) or (@cnt % 50 = 0))
+		if((@cnt = 0) or (@cnt % 39 = 0))
 		begin
-		print @cnt
+			insert into @tmp (gno,rno,noa,mon,custname,custaddr,custtel)
+			values('0',@rno,@noa,@mon,@custname,@custaddr,@custtel)
 			insert into @tmp (gno,rno,noa,mon)
 			values('1',@rno,@noa,@mon)
 		end				
@@ -247,7 +252,7 @@ begin
 		set	@xnoa = @noa	
 			
 		fetch next from cursor_table 
-		into @rno,@noa,@mon
+		into @rno,@noa,@mon,@custname,@custaddr,@custtel
 	end 
 	close cursor_table 
 	deallocate cursor_table
@@ -278,10 +283,10 @@ begin
 	set @xmon = 'zzzzzz'
 	
 	declare cursor_table cursor for 
-	select rno,noa,mon from @tmp where gno = '8'
+	select rno,noa,mon,custname,custaddr,custtel from @tmp where gno = '8'
 	open cursor_table 
 	fetch next from cursor_table 
-	into @rno,@noa,@mon
+	into @rno,@noa,@mon,@custname,@custaddr,@custtel
 	while(@@FETCH_STATUS <> -1) 
 	begin
 		if(@xnoa != @noa)
@@ -290,9 +295,11 @@ begin
 			set	@xnoa = @noa			
 		end				
 						
-		if((@cnt = 0) or (@cnt % 50 = 0))
+		if((@cnt = 0) or (@cnt % 39 = 0))
 		begin
 		print @cnt
+			insert into @tmp (gno,rno,noa,mon,custname,custaddr,custtel)
+			values('0',@rno,@noa,@mon,@custname,@custaddr,@custtel)
 			insert into @tmp (gno,rno,noa,mon)
 			values('7',@rno,@noa,@mon)
 		end				
@@ -300,7 +307,7 @@ begin
 		set	@xnoa = @noa	
 			
 		fetch next from cursor_table 
-		into @rno,@noa,@mon
+		into @rno,@noa,@mon,@custname,@custaddr,@custtel
 	end 
 	close cursor_table 
 	deallocate cursor_table
