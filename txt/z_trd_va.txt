@@ -1,0 +1,370 @@
+z_trd_va01:--z_trd_va01
+
+declare @t_bcustno nvarchar(20)
+declare @t_ecustno nvarchar(20)
+declare @t_bdate nvarchar(10)
+declare @t_edate nvarchar(10)
+declare @t_vccano nvarchar(10)
+declare @t_po nvarchar(20)
+declare @t_option01 nvarchar(20)
+
+set @t_bcustno = case when '#non'=[3] then '' else [3] end
+set @t_ecustno = case when '#non'=[4] then char(255) else [4] end
+set @t_bdate = case when '#non'=[5] then '' else [5] end
+set @t_edate = case when '#non'=[6] then char(255) else [6] end
+set @t_vccano = case when '#non'=[7] then '' else [7] end
+set @t_po = case when '#non'=[10] then '' else [10] end
+set @t_option01 = case when '#non'=[11] then '' else [11] end
+
+---------------------------------------------------------------------------------
+
+declare @tmp table(
+	gno nvarchar(1),
+	rno int,
+	noa nvarchar(30),
+	mon nvarchar(10),
+	custno nvarchar(30),
+	custname nvarchar(100),
+	custaddr nvarchar(100),
+	custtel nvarchar(100),
+	trandate nvarchar(10),
+	po nvarchar(20),
+	carno nvarchar(20),
+	product nvarchar(20),
+	straddr nvarchar(max),
+	endaddr nvarchar(max),	
+	mount decimal(18,3),
+	price decimal(18,3),
+	pton decimal(18,3),
+	total float,
+	memo nvarchar(200),
+	vno nvarchar(max),
+	tmoney float,
+	tax float,
+	ttotal float,
+	custchgno nvarchar(max),
+	item nvarchar(max),
+	plusmoney float,
+	minusmoney float
+)
+
+insert into @tmp 
+select '2',ROW_NUMBER() over (order by b.noa,d.trandate),b.noa,b.mon,a.noa,a.comp,a.addr_comp,
+	   case when LEN(a.tel) = 0 then a.mobile else a.tel end,
+	   d.trandate,b.po,d.carno,d.product,d.straddr,d.endaddr,d.mount,d.price,d.pton,d.total,d.memo,b.vccano,'','','',b.custchgno,'',0,0
+from cust a
+left join view_trd b on a.noa = b.custno
+left join view_trds c on b.noa = c.noa
+left join view_trans d on c.tranno = d.noa and c.trannoq = d.noq
+where (a.noa between @t_bcustno and @t_ecustno) and (b.datea between @t_bdate and @t_edate) and
+	  (LEN(@t_vccano) = 0 or b.vccano = @t_vccano) and (LEN(@t_po) = 0 or b.po = @t_po)
+order by b.noa
+
+if(patindex('%sel1%',@t_option01) = 0)
+begin
+	insert into @tmp(gno,noa,vno,tmoney,tax,ttotal)
+	select '5',noa,vccano,money,tax,total
+	from view_trd where (custno between @t_bcustno and @t_ecustno) and (datea between @t_bdate and @t_edate) and (LEN(@t_vccano) = 0 or vccano = @t_vccano)
+
+	declare @noa nvarchar(30)
+	declare @xnoa nvarchar(30)
+	declare @mon nvarchar(30)
+	declare @custno nvarchar(20)
+	declare @custchgno nvarchar(max)
+	declare @xcustchgno nvarchar(max)
+	declare @str nvarchar(max)
+	declare @sub nvarchar(max)
+	declare @date nvarchar(10)
+	declare @pitem nvarchar(10)
+	declare @mitem nvarchar(10)
+	declare @pmny float
+	declare @mmny float
+	declare @memo nvarchar(200) 
+
+	set @xnoa = 'zzzzzzzzzzzz'
+	set @xcustchgno = 'zzzzzzzzzzzz'
+
+	declare cursor_table cursor for 
+	select noa,mon,custno,custchgno from @tmp where gno = '2'
+	open cursor_table 
+	fetch next from cursor_table 
+	into @noa,@mon,@custno,@custchgno
+	while(@@FETCH_STATUS <> -1) 
+	begin	
+		if(@xnoa != @noa and LEN(@custchgno) = 0)
+		begin 
+			set @pmny = 0
+			set @mmny = 0
+			insert into @tmp(gno,noa,mon,custno,custchgno,plusmoney,minusmoney)
+			values('4',@noa,@mon,@custno,@custchgno,@pmny,@mmny)
+			set @xnoa =@noa 
+			set @xcustchgno = @custchgno
+		end
+		if(@xcustchgno != @custchgno and LEN(@custchgno) = 12)
+		begin
+			set @str = @custchgno 
+			set @date = (select datea from custchg where noa = @str)
+			set @pitem = (select plusitem from custchg where noa = @str)
+			set @mitem = (select minusitem from custchg where noa = @str)
+			set @pmny = (select plusmoney from custchg where noa = @str)
+			set @mmny = (select minusmoney from custchg where noa = @str)
+			set @memo = (select memo from carchg where noa = @str)
+			insert into @tmp(gno,noa,mon,custno,trandate,custchgno,item,plusmoney,minusmoney,memo)
+			values('4',@noa,@mon,@custno,@date,@custchgno,@pitem+@mitem,@pmny,@mmny,@memo)
+			set @xnoa =@noa 
+			set @xcustchgno = @custchgno
+		end
+		else if(@xcustchgno != @custchgno and LEN(@custchgno) > 12)
+		begin
+			set @str = @custchgno 
+			while (LEN(@str) > 0)
+			begin
+				set @sub = SUBSTRING(@str,1,12)						
+				
+				if(LEN(@str) > 12)
+				begin
+					set @date = (select datea from custchg where noa = @sub)
+					set @pitem = (select plusitem from custchg where noa = @sub)
+					set @mitem = (select minusitem from custchg where noa = @sub)
+					set @pmny = (select plusmoney from custchg where noa = @sub)
+					set @mmny = (select minusmoney from custchg where noa = @sub)
+					set @memo = (select memo from carchg where noa = @sub)
+					insert into @tmp(gno,noa,mon,custno,trandate,custchgno,item,plusmoney,minusmoney,memo)
+					values('4',@noa,@mon,@custno,@date,@sub,@pitem+@mitem,@pmny,@mmny,@memo)
+					set @str = RIGHT(@str,LEN(@str)-13)	
+				end
+				else if(LEN(@str) = 12)
+				begin
+					set @date = (select datea from custchg where noa = @sub)
+					set @pitem = (select plusitem from custchg where noa = @sub)
+					set @mitem = (select minusitem from custchg where noa = @sub)
+					set @pmny = (select plusmoney from custchg where noa = @sub)
+					set @mmny = (select minusmoney from custchg where noa = @sub)
+					set @memo = (select memo from carchg where noa = @sub)
+					insert into @tmp(gno,noa,mon,custno,trandate,custchgno,item,plusmoney,minusmoney,memo)
+					values('4',@noa,@mon,@custno,@date,@sub,@pitem+@mitem,@pmny,@mmny,@memo)			
+					set @str = ''
+				end
+				set @xnoa =@noa 
+				set @xcustchgno = @custchgno	
+			end
+		end
+		else if (@xcustchgno = @custchgno)
+		begin
+			 set @xnoa =@noa 
+			 set @xcustchgno = @custchgno
+		end
+		fetch next from cursor_table 
+		into @noa,@mon,@custno,@custchgno
+	end 
+	close cursor_table 
+	deallocate cursor_table
+
+	declare @xmon nvarchar(30)
+	declare @xcustno nvarchar(20)
+	declare @plusmoney float
+	declare @minusmoney float
+	declare @totpmny float
+	declare @totmmny float
+	declare @cnt int
+
+	set @xnoa = 'zzzzzzzzzzzz'
+	set @xmon = 'zzzzzz'
+	set @xcustno = 'xxxx'
+
+	declare cursor_table cursor for 
+	select noa,mon,custno,plusmoney,minusmoney from @tmp where gno = '4'
+	open cursor_table 
+	fetch next from cursor_table 
+	into @noa,@mon,@custno,@plusmoney,@minusmoney
+	while(@@FETCH_STATUS <> -1) 
+	begin
+		if(@xnoa !=@noa or @xmon != @mon or @xcustno != @custno)
+		begin
+			set @cnt = (select COUNT(*) from @tmp where gno = '4' and noa = @noa and mon = @mon and custno = @custno)
+			set @totpmny = 0
+			set @totmmny = 0 
+			set @totpmny = @totpmny + @plusmoney
+			set @totmmny = @totmmny + @minusmoney
+			set @cnt = @cnt - 1
+			set @xnoa = @noa
+			set @xmon = @mon
+			set @xcustno = @custno
+		end
+		else if (@xnoa =@noa and @xmon = @mon and @xcustno = @custno)
+		begin
+			set @totpmny = @totpmny + @plusmoney
+			set @totmmny = @totmmny + @minusmoney
+			set @cnt = @cnt - 1
+			set @xnoa = @noa
+			set @xmon = @mon
+			set @xcustno = @custno
+		end
+		if(@cnt = 0)
+		begin
+			update @tmp set plusmoney = @plusmoney where gno = '5' and noa = @noa 
+			update @tmp set minusmoney = @minusmoney where gno = '5' and noa = @noa 
+		end	
+		
+		fetch next from cursor_table 
+		into @noa,@mon,@custno,@plusmoney,@minusmoney
+	end 
+	close cursor_table 
+	deallocate cursor_table
+
+	insert into @tmp(gno,noa,mon,custno,tmoney)
+	select '6',noa,mon,custno,(tmoney + tax + plusmoney - minusmoney)
+	from @tmp where gno = '5'
+
+	insert into @tmp (gno,noa,mon)
+	select '3',noa,mon
+	from @tmp where gno ='4'
+	
+	declare @rno nvarchar(10)
+	set @xnoa = 'zzzzzzzzzzzz'
+	set @xmon = 'zzzzzz'
+	
+	declare @custname nvarchar(100)
+	declare @custaddr nvarchar(100)
+	declare @custtel nvarchar(100)
+	
+	declare cursor_table cursor for 
+	select rno,noa,mon,custname,custaddr,custtel from @tmp where gno = '2'
+	open cursor_table 
+	fetch next from cursor_table 
+	into @rno,@noa,@mon,@custname,@custaddr,@custtel
+	while(@@FETCH_STATUS <> -1) 
+	begin
+		if(@xnoa != @noa)
+		begin
+			set @cnt = 0
+			set	@xnoa = @noa			
+		end				
+						
+		if((@cnt = 0) or (@cnt % 39 = 0))
+		begin
+			insert into @tmp (gno,rno,noa,mon,custname,custaddr,custtel)
+			values('0',@rno,@noa,@mon,@custname,@custaddr,@custtel)
+			insert into @tmp (gno,rno,noa,mon)
+			values('1',@rno,@noa,@mon)
+		end				
+		set @cnt = @cnt + 1
+		set	@xnoa = @noa	
+			
+		fetch next from cursor_table 
+		into @rno,@noa,@mon,@custname,@custaddr,@custtel
+	end 
+	close cursor_table 
+	deallocate cursor_table
+	
+	update @tmp set rno = 9999999 where gno = '3' or gno = '4' or gno = '5' or gno = '6'
+	
+	select gno,rno,noa,mon,custname,custaddr,custtel,trandate,po,carno,product,straddr,endaddr,price,pton,mount,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,total),1)),4,15)) total,
+	   memo,vno,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,tmoney),1)),4,15)) tmoney,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,tax),1)),4,15)) tax,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,ttotal),1)),4,15)) ttotal,
+	   item,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,plusmoney),1)),4,15)) plusmoney,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,minusmoney),1)),4,15)) minusmoney
+	from @tmp order by noa,rno,gno
+end
+
+else if(patindex('%sel1%',@t_option01) = 1)
+begin
+	update @tmp set gno = '8' where gno = '2'
+	
+	insert into @tmp(gno,rno,noa,mon,vno,mount,pton)
+	select '9',999999999,noa,mon,vno,SUM(mount),SUM(pton)
+	from @tmp where gno = '8' group by noa,mon,vno
+	
+	set @xnoa = 'zzzzzzzzzzzz'
+	set @xmon = 'zzzzzz'
+	
+	declare cursor_table cursor for 
+	select rno,noa,mon,custname,custaddr,custtel from @tmp where gno = '8'
+	open cursor_table 
+	fetch next from cursor_table 
+	into @rno,@noa,@mon,@custname,@custaddr,@custtel
+	while(@@FETCH_STATUS <> -1) 
+	begin
+		if(@xnoa != @noa)
+		begin
+			set @cnt = 0
+			set	@xnoa = @noa			
+		end				
+						
+		if((@cnt = 0) or (@cnt % 39 = 0))
+		begin
+		print @cnt
+			insert into @tmp (gno,rno,noa,mon,custname,custaddr,custtel)
+			values('0',@rno,@noa,@mon,@custname,@custaddr,@custtel)
+			insert into @tmp (gno,rno,noa,mon)
+			values('7',@rno,@noa,@mon)
+		end				
+		set @cnt = @cnt + 1
+		set	@xnoa = @noa	
+			
+		fetch next from cursor_table 
+		into @rno,@noa,@mon,@custname,@custaddr,@custtel
+	end 
+	close cursor_table 
+	deallocate cursor_table
+	
+	select gno,rno,noa,mon,custname,custaddr,custtel,trandate,po,carno,product,straddr,endaddr,price,pton,mount,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,total),1)),4,15)) total,
+	   memo,vno,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,tmoney),1)),4,15)) tmoney,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,tax),1)),4,15)) tax,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,ttotal),1)),4,15)) ttotal,
+	   item,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,plusmoney),1)),4,15)) plusmoney,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,minusmoney),1)),4,15)) minusmoney
+	from @tmp order by noa,rno,gno
+end
+ ;
+
+
+
+-*******************************************************************************
+
+z_trd_va02:--z_trd_va02
+
+declare @t_bcustno nvarchar(20)
+declare @t_ecustno nvarchar(20)
+declare @t_bmon nvarchar(10)
+declare @t_emon nvarchar(10)
+
+
+set @t_bcustno = case when '#non'=[3] then '' else [3] end
+set @t_ecustno = case when '#non'=[4] then char(255) else [4] end
+set @t_bmon = case when '#non'=[8] then '' else [8] end
+set @t_emon = case when '#non'=[9] then char(255) else [9] end
+
+---------------------------------------------------------------------------------
+
+declare @tmp table(
+	gno nvarchar(1),
+	mon nvarchar(50),
+	custno nvarchar(20),
+	custname nvarchar(100),
+	total float,
+    payed float
+--	備註
+)
+
+insert into @tmp
+select '0',mon,custno,comp,sum(total),SUM(payed)
+from view_trd
+where (mon between @t_bmon and @t_emon) and (custno between @t_bcustno and @t_ecustno)
+group by mon,custno,comp
+
+insert into @tmp(gno,mon,total,payed)
+select '1',mon,SUM(total),SUM(payed)
+from @tmp where gno = '0' group by mon 
+
+update @tmp set mon = SUBSTRING(mon,1,3) + '年' + SUBSTRING(mon,5,2) + '月份請款明細表' 
+update @tmp set custno = 'zzzz' where gno = '1'
+
+select * from @tmp order by mon,custno,gno  ;
