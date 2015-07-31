@@ -155,3 +155,163 @@ deallocate cursor_table
 
 
 select * from @tmp1 order by trandate,driver,gno*/
+
+-------------------------------------------------------------------------------------------------------
+z_trans_va04:--z_trans_va04
+declare @t_bmon nvarchar(10)
+declare @t_emon nvarchar(10)
+set @t_bmon = case when '#non'=[3] then '' else [3] end
+set @t_emon = case when '#non'=[4] then char(255) else [4] end
+--------------------------------------------------------------------------------------------------------
+declare @tmp table( 
+gno int, 
+trandate nvarchar(10), 
+carno nvarchar(10), 
+driver nvarchar(20), 
+comp nvarchar(max), 
+po nvarchar(max), 
+noa nvarchar(max), 
+product nvarchar(max), 
+saddr nvarchar(max), 
+endaddr nvarchar(max), 
+weight float, 
+price float, 
+mount float, 
+outmount float, 
+outpay float, 
+memo nvarchar(max) ,
+sumprice float ,
+sumout float 
+) 
+insert into @tmp 
+select '0',trandate,carno,driver,comp 
+,po ,noa,product,straddr,endaddr,mount,price,
+total ,outmount ,total2,memo,0,0 from view_trans 
+where SUBSTRING(trandate,1,6) between @t_bmon and @t_emon 
+
+
+insert into @tmp(gno,sumprice,sumout)
+select '1',SUM(mount),sum(outpay)
+from @tmp
+where SUBSTRING(trandate,1,6) between @t_bmon and @t_emon 
+----------------------------------------------------------------------------------------------------------- 
+select * ,dbo.getComma(sumprice,0) sp ,dbo.getComma(sumout,0) so
+from @tmp 
+order by gno , trandate ;
+
+--------------------------------------------------------------------------------------------
+
+z_trans_va05:--z_trans_va05
+declare @t_bmon nvarchar(10)
+declare @t_emon nvarchar(10)
+set @t_bmon = case when '#non'=[3] then '' else [3] end
+set @t_emon = case when '#non'=[4] then char(255) else [4] end
+--------------------------------------------------------------------------------------------
+
+declare @yyy nvarchar(3)=left(@t_emon,3) 
+declare @mm nvarchar(2)=right(@t_emon,2) 
+declare @carcount float 
+declare @pa float = convert(float,right(@t_emon,2))-convert(float,right(@t_bmon,2)) 
+declare @pb float = convert(float,left(@t_emon,3))-convert(float,left(@t_bmon,3)) 
+declare @ps float = (@pb*12)+@pa 
+declare @tmp table( 
+gno nvarchar(2), 
+carno nvarchar(max), 
+ranks int, 
+driver nvarchar(20), 
+per1 float, 
+per2 float, 
+salary float, 
+t_salary float, 
+memo nvarchar(max), 
+cou int, 
+avgm float, 
+cuonts float, 
+avgcar float, 
+jan float, 
+feb float, 
+mar float, 
+apr float, 
+may float, 
+jun float, 
+jul float, 
+aug float, 
+sep float, 
+oct float, 
+nov float, 
+dec float,
+smss float,
+sals float,
+pes float,
+sms float
+) 
+
+--b.jan,b.feb,b.mar,b.apr,b.may,b.jun,b.jul,b.aug,b.sep,b.oct,b.nov,b.dec 
+declare @i int = 0 
+
+insert into @tmp(gno,driver,carno,per1,salary,per2,ranks,t_salary,memo,cou, 
+jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec) 
+
+select distinct 0 gno,a.driver,( 
+select distinct carno +' ',COUNT(*) from view_trans c where 
+SUBSTRING(trandate,1,6) between @t_bmon and @t_emon 
+and a.driver=c.driver 
+group by carno 
+FOR XML PATH('') 
+
+) carno 
+
+,sum(a.total) per1 
+,(case when right(@t_bmon,2)='01' then b.jan 
+when right(@t_bmon,2)='02' then b.feb 
+when right(@t_bmon,2)='03' then b.mar 
+when right(@t_bmon,2)='04' then b.apr 
+when right(@t_bmon,2)='05' then b.may 
+when right(@t_bmon,2)='06' then b.jun 
+when right(@t_bmon,2)='07' then b.jul 
+when right(@t_bmon,2)='08' then b.aug 
+when right(@t_bmon,2)='09' then b.sep 
+when right(@t_bmon,2)='10' then b.oct 
+when right(@t_bmon,2)='11' then b.nov 
+when right(@t_bmon,2)='12' then b.dec end) salary 
+,SUM(total2) per2,RANK() over(order by SUM(total2) desc) ranks, 
+0 st,b.memo, 
+(select distinct COUNT(distinct carno) from view_trans d where a.driver=d.driver 
+and SUBSTRING(trandate,1,6) between @t_bmon and @t_emon ) countt, 
+case when SUBSTRING(@yyy+'/01',1,6) between @t_bmon and @t_emon then b.jan else 0 end , 
+case when SUBSTRING(@yyy+'/02',1,6) between @t_bmon and @t_emon then b.feb else 0 end , 
+case when SUBSTRING(@yyy+'/03',1,6) between @t_bmon and @t_emon then b.mar else 0 end , 
+case when SUBSTRING(@yyy+'/04',1,6) between @t_bmon and @t_emon then b.apr else 0 end , 
+case when SUBSTRING(@yyy+'/05',1,6) between @t_bmon and @t_emon then b.may else 0 end , 
+case when SUBSTRING(@yyy+'/06',1,6) between @t_bmon and @t_emon then b.jun else 0 end , 
+case when SUBSTRING(@yyy+'/07',1,6) between @t_bmon and @t_emon then b.jul else 0 end , 
+case when SUBSTRING(@yyy+'/08',1,6) between @t_bmon and @t_emon then b.aug else 0 end , 
+case when SUBSTRING(@yyy+'/09',1,6) between @t_bmon and @t_emon then b.sep else 0 end , 
+case when SUBSTRING(@yyy+'/10',1,6) between @t_bmon and @t_emon then b.oct else 0 end , 
+case when SUBSTRING(@yyy+'/11',1,6) between @t_bmon and @t_emon then b.nov else 0 end , 
+case when SUBSTRING(@yyy+'/12',1,6) between @t_bmon and @t_emon then b.dec else 0 end 
+--b.jan,b.feb,b.mar,b.apr,b.may,b.jun,b.jul,b.aug,b.sep,b.oct,b.nov,b.dec 
+from view_trans a left join carsalary b on a.driver=b.namea 
+where SUBSTRING(a.trandate,1,6) = @t_bmon 
+and b.year=SUBSTRING(a.trandate,1,3) 
+group by a.driver,b.jan,b.feb,b.mar,b.apr,b.may,b.jun,b.jul,b.aug,b.sep,b.oct,b.nov,b.dec,b.memo 
+order by ranks 
+
+
+insert into @tmp(gno,avgm,avgcar,smss,
+sals ,pes ) 
+select '1',dbo.getComma(AVG(cou),0),avg(per2),SUM(jan+feb+mar+apr+may+jun+jul+aug+sep+oct+nov+dec),
+SUM(salary),SUM(per2)
+from @tmp 
+
+select *,@yyy ys,@mm ms,@ps,left(carno,6) cno,jan+feb+mar+apr+may+jun+jul+aug+sep+oct+nov+dec sns, 
+dbo.getComma(per1,0) per3, 
+dbo.getComma(per2,0) per4, 
+dbo.getComma(salary,0) sal, 
+dbo.getComma(avgcar,0) avgcar1,
+dbo.getComma(smss,0) smsss,
+dbo.getComma(sals,0) salss,
+dbo.getComma(pes,0) pess 
+
+from @tmp 
+order by gno;
