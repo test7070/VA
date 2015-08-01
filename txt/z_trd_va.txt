@@ -202,8 +202,8 @@ begin
 		end
 		if(@cnt = 0)
 		begin
-			update @tmp set plusmoney = @plusmoney where gno = '5' and noa = @noa 
-			update @tmp set minusmoney = @minusmoney where gno = '5' and noa = @noa 
+			update @tmp set plusmoney = @totpmny where gno = '5' and noa = @noa 
+			update @tmp set minusmoney = @totmmny where gno = '5' and noa = @noa 
 		end	
 		
 		fetch next from cursor_table 
@@ -217,7 +217,7 @@ begin
 	from @tmp where gno = '5'
 
 	insert into @tmp (gno,noa,mon)
-	select '3',noa,mon
+	select '3',max(noa),max(mon)
 	from @tmp where gno ='4'
 	
 	declare @rno nvarchar(10)
