@@ -257,3 +257,17 @@ select gno,mon,driverno,driver,
 	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,total),1)),4,15)) total,
 	   memo
 from @tmp order by mon,gno ;
+
+
+
+
+--******************************************************************************
+z_trans_va05:--z_trans_va05
+
+declare @t_bmon nvarchar(10)
+declare @t_emon nvarchar(10)
+
+set @t_bmon = case when '#non'=[3] then '' else [3] end
+set @t_emon = case when '#non'=[4] then char(255) else [4] end
+
+---------------------------------------------------------------------------------
