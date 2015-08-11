@@ -64,14 +64,14 @@
                         name : 'datea'
                     }, {/*3-2 [17]*/
                         type : '6',
-                        name : 'xmon'
+                        name : 'xyear'
                     }]
                 });
                 q_popAssign();
 				q_getFormat();
 				q_langShow();
 
-				$('#txtXmon').mask('999/99');
+				$('#txtXyear').mask('999');
 				
 				$('#txtMon1').mask('999/99');
 				$('#txtMon2').mask('999/99');
