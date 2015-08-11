@@ -1,3 +1,94 @@
+z_fixa_va01:--z_fixa_va01	
+	SET QUOTED_IDENTIFIER OFF
+	declare @cmd nvarchar(max)
+	declare @t_accy nvarchar(20) = case when '#non'=[17] then '' else [17] end
+	declare @t_carno nvarchar(max) = case when '#non'=[7] then '' else [7] end
+	----------------------------------------------------------------------------------------------------------------
+	declare @tmpa table(
+		carno nvarchar(20),
+		mon nvarchar(10),
+		fixa float,
+		tire float
+	)
+	insert into @tmpa(carno,mon,fixa,tire)
+	select isnull(carno,''),mon,SUM(ISNULL(wmoney,0)),SUM(ISNULL(cmoney,0)+ISNULL(dmoney,0)+ISNULL(emoney,0)) 
+	from trans_sum
+	where LEFT(mon,3)=@t_accy
+	and (len(@t_carno)=0 or CHARINDEX(','+carno+',',','+@t_carno+',')>0)
+	group by isnull(carno,''),mon
+	----------------------------------------------------------------------------------------------------------------
+	IF OBJECT_ID('tempdb..#z_fixa_va01')is not null
+	BEGIN
+		drop table #z_fixa_va01
+	END
+	create table #z_fixa_va01(
+		gno nvarchar(20),
+		recno int,
+		carno nvarchar(20),
+		caryear nvarchar(20),
+		a01 float,
+		a02 float,
+		a03 float,
+		a04 float,
+		a05 float,
+		a06 float,
+		a07 float,
+		a08 float,
+		a09 float,
+		a10 float,
+		a11 float,
+		a12 float,
+		a13 float,
+		b01 float,
+		b02 float,
+		b03 float,
+		b04 float,
+		b05 float,
+		b06 float,
+		b07 float,
+		b08 float,
+		b09 float,
+		b10 float,
+		b11 float,
+		b12 float,
+		b13 float
+	)
+	declare @carno nvarchar(max)
+	declare @mon nvarchar(max)
+	declare @fixa nvarchar(max)
+	declare @tire nvarchar(max)
+	
+	declare cursor_table cursor for
+	select carno,mon,fixa,tire from @tmpa 
+	open cursor_table
+	fetch next from cursor_table
+	into @carno,@mon,@fixa,@tire
+	while(@@FETCH_STATUS <> -1)
+	begin
+		if not exists(select * from #z_fixa_va01 where carno=@carno)
+		begin
+			insert into #z_fixa_va01(gno,carno)values('1',@carno)
+		end
+		set @cmd = "update #z_fixa_va01 set a"+RIGHT(@mon,2)+"=@fixa,b"+RIGHT(@mon,2)+"=@tire where carno=@carno"
+		execute sp_executesql @cmd,N'@carno nvarchar(max),@fixa float,@tire float'
+			,@carno=@carno,@fixa=@fixa,@tire=@tire
+		
+		fetch next from cursor_table
+		into @carno,@mon,@fixa,@tire
+	end
+	close cursor_table
+	deallocate cursor_table
+	
+	update #z_fixa_va01 set caryear=isnull(b.caryear,'')
+	from #z_fixa_va01 a
+	left join car2 b on a.carno=b.carno
+	
+	update #z_fixa_va01 set recno=b.recno
+	from #z_fixa_va01 a
+	left join (select ROW_NUMBER()over(order by case when len(caryear)=0 then 1 else 0 end,caryear desc,carno) recno,carno from #z_fixa_va01 ) b on a.carno=b.carno
+	select * from #z_fixa_va01 order by gno,recno
+	drop table #z_fixa_va01;
+
 z_fixa_va02:--z_fixa_va02
 
 declare @t_bmon nvarchar(10)

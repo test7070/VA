@@ -62,12 +62,16 @@
                     },{/*3-1 [15][16]*/
                         type : '1',
                         name : 'datea'
+                    }, {/*3-2 [17]*/
+                        type : '6',
+                        name : 'xmon'
                     }]
                 });
                 q_popAssign();
 				q_getFormat();
 				q_langShow();
 
+				$('#txtXmon').mask('999/99');
 				
 				$('#txtMon1').mask('999/99');
 				$('#txtMon2').mask('999/99');
