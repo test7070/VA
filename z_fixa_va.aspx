@@ -65,7 +65,13 @@
                     }, {/*3-2 [17]*/
                         type : '6',
                         name : 'xyear'
-                    }]
+                    }, {/*3-3 [18][19]*/
+                        type : '2',
+                        name : 'fixucc',
+                        dbf : 'fixucc',
+                        index : 'noa,namea',
+                        src : 'fixucc_b.aspx'
+                    },]
                 });
                 q_popAssign();
 				q_getFormat();

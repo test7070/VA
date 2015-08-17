@@ -110,21 +110,23 @@ declare @t_emon nvarchar(10)
 declare @t_bfixadate nvarchar(10)
 declare @t_efixadate nvarchar(10)
 declare @t_carno nvarchar(20)
-
+declare @t_bfixucc nvarchar(30)
+declare @t_efixucc nvarchar(30)
 
 set @t_bmon = case when '#non'=[3] then '' else [3] end
 set @t_emon = case when '#non'=[4] then char(255) else [4] end
 set @t_bfixadate = case when '#non'=[5] then '' else [5] end
 set @t_efixadate = case when '#non'=[6] then char(255) else [6] end
 set @t_carno = case when '#non'=[7] then '' else [7] end
-
+set @t_bfixucc = case when '#non'=[18] then '' else [18] end
+set @t_efixucc = case when '#non'=[19] then char(255) else [19] end
 ---------------------------------------------------------------------------------
-
 declare @tmp table(
 	gno nvarchar(1),
 	mon nvarchar(10),
 	fixadate nvarchar(10),
 	carxno nvarchar(20),
+	productno nvarchar(30),	
 	product nvarchar(50),
 	miles float,
 	tgg nvarchar(90),
@@ -134,10 +136,10 @@ declare @tmp table(
 
 
 insert into @tmp
-select '0',a.mon,a.fixadate,a.carno,b.product,a.miles,a.tgg,b.price,b.memo from fixa a 
+select '0',a.mon,a.fixadate,a.carno,b.productno,b.product,a.miles,a.tgg,b.price,b.memo from fixa a 
 left join fixas b on a.noa = b.noa
-where (len(@t_carno) = 0 or a.carno = @t_carno) and (a.mon between @t_bmon and @t_emon)and  (a.fixadate between @t_bfixadate and @t_efixadate)
-
+where (len(@t_carno) = 0 or a.carno = @t_carno) and (a.mon between @t_bmon and @t_emon)and  (a.fixadate between @t_bfixadate and @t_efixadate) and
+	  (b.productno between @t_bfixucc and @t_efixucc)
 update @tmp set mon = SUBSTRING(mon,1,3)+'.'+SUBSTRING(mon,5,6)
 
 insert into @tmp(gno,mon,carxno)
@@ -149,7 +151,8 @@ select '2',carxno from @tmp group by carxno
 update @tmp set fixadate='zzzzzzzzz' where gno = '1' or gno = '2'
 update @tmp set mon='zzzzzzzzz' where gno = '2'
 
-select * from @tmp order by carxno,mon,gno;
+select gno,mon,fixadate,carxno,productno,product,miles,tgg,dbo.getComma(price,0) price,memo from @tmp order by carxno,mon,gno;
+
 
 
 
@@ -161,6 +164,8 @@ declare @t_emon nvarchar(10)
 declare @t_bfixadate nvarchar(10)
 declare @t_efixadate nvarchar(10)
 declare @t_carplateno nvarchar(20)
+declare @t_bfixucc nvarchar(30)
+declare @t_efixucc nvarchar(30)
 
 
 set @t_bmon = case when '#non'=[3] then '' else [3] end
@@ -168,9 +173,10 @@ set @t_emon = case when '#non'=[4] then char(255) else [4] end
 set @t_bfixadate = case when '#non'=[5] then '' else [5] end
 set @t_efixadate = case when '#non'=[6] then char(255) else [6] end
 set @t_carplateno = case when '#non'=[8] then '' else [8] end
+set @t_bfixucc = case when '#non'=[18] then '' else [18] end
+set @t_efixucc = case when '#non'=[19] then char(255) else [19] end
 
 ---------------------------------------------------------------------------------
-
 declare @tmp table(
 	gno nvarchar(1),
 	mon nvarchar(10),
@@ -186,8 +192,8 @@ insert into @tmp
 select '0',a.mon,a.fixadate,a.carplateno,b.product,a.miles,a.tgg,b.price,b.memo
 from fixa a 
 left join fixas b on a.noa = b.noa
-where (len(@t_carplateno) = 0 or a.carplateno = @t_carplateno) and (a.mon between @t_bmon and @t_emon)and  (a.fixadate between @t_bfixadate and @t_efixadate)
-
+where (len(@t_carplateno) = 0 or a.carplateno = @t_carplateno) and (a.mon between @t_bmon and @t_emon)and  (a.fixadate between @t_bfixadate and @t_efixadate) and
+	  (b.productno between @t_bfixucc and @t_efixucc)
 update @tmp set mon = SUBSTRING(mon,1,3)+'.'+SUBSTRING(mon,5,6)
 
 insert into @tmp(gno,mon,plate)
@@ -199,7 +205,7 @@ select '2',plate from @tmp group by plate
 update @tmp set fixadate='zzzzzzzzz' where gno = '1' or gno = '2'
 update @tmp set mon='zzzzzzzzz' where gno = '2'
 
-select * from @tmp order by plate,mon,gno;
+select gno,mon,fixadate,plate,product,miles,tgg,dbo.getComma(price,0) price,memo from @tmp order by plate,mon,gno;
 
 
 
