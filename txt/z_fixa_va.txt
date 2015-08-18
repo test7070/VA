@@ -103,6 +103,9 @@ z_fixa_va01:--z_fixa_va01
 	select carno cc,* from #z_fixa_va01 order by gno,recno
 	drop table #z_fixa_va01;
 
+
+
+--********************************************************************************
 z_fixa_va02:--z_fixa_va02
 
 declare @t_bmon nvarchar(10)
