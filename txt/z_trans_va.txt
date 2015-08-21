@@ -85,7 +85,7 @@ declare @tmp1 table(
 	gno nvarchar(1),
 	trandate nvarchar(10),
 	carno nvarchar(max),
-	ranking nvarchar(10),
+	ranking int,
 	driver nvarchar(20),
 	tranmoney float,
 	drivermoney float
@@ -167,7 +167,7 @@ end
 close cursor_table 
 deallocate cursor_table 
 
-declare @ranking nvarchar(10)
+declare @ranking int
 declare @i int
 declare @cnt int
 
@@ -195,7 +195,7 @@ deallocate cursor_table
 
 update @tmp1 set trandate = SUBSTRING(trandate,1,3) + '.' + SUBSTRING(trandate,5,2) 
 update @tmp1 set tranmoney = CEILING(tranmoney / carno) where gno = '3'
-update @tmp1 set ranking = 'zzzzz' where gno = '2' or gno = '3' 
+update @tmp1 set ranking = '999999999' where gno = '2' or gno = '3' 
 
 select * from @tmp1 order by trandate,ranking,gno  ;
 
@@ -420,4 +420,151 @@ select gno,mon,driverno,driver,
 	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,total),1)),4,15)) total,
 	   memo
 from @tmp order by mon,gno ;
+<<<<<<< HEAD
 >>>>>>> ad848a707d0b82e4a1c603bc4dbc77d3656618cc
+=======
+
+
+
+
+--******************************************************************************
+z_trans_va06:--z_trans_va06
+
+declare @t_bmon nvarchar(10)
+declare @t_emon nvarchar(10)
+
+set @t_bmon = case when '#non'=[3] then '' else [3] end
+set @t_emon = case when '#non'=[4] then char(255) else [4] end
+
+---------------------------------------------------------------------------------
+
+declare @carsals table(
+	mon nvarchar(10),
+	driverno nvarchar(20),
+	driver nvarchar(20),
+	carno nvarchar(20),
+	tranmoney float,
+	drivermoney float,
+	salary float,
+	ticket float
+) 
+insert into @carsals
+select a.noa,a.driverno,a.driver,b.carno,a.tranmoney,a.drivermoney,a.total,a.ticket
+from carsals a
+left join car2 b on a.driverno = b.driverno
+where (a.noa between @t_bmon and @t_emon) and (LEN(a.driverno) > 0) and (LEN(b.carno) > 0)
+order by b.driverno
+
+declare @caras table(
+	mon  nvarchar(20),
+	driverno nvarchar(20),
+	carno nvarchar(20),
+	caritem nvarchar(20),
+	money1 float,
+	money2 float
+) 
+insert into @caras
+select a.mon,b.driverno,a.carno,a.caritem,
+	   case when a.caritem = '牌照稅' then a.outmoney else 0 end,
+	   case when a.caritem = '燃料費' then a.outmoney else 0 end
+from caras a 
+left join car2 b on a.carno = b.carno
+where (a.mon between @t_bmon and @t_emon) and (a.caritem = '牌照稅' or caritem = '燃料費') and (LEN(b.driverno) > 0)
+
+declare @carInsure table(
+	driverno nvarchar(10),
+	carno nvarchar(20),
+	bdate nvarchar(10),
+	edate nvarchar(10),
+	money float
+
+)
+insert into @carInsure
+select b.driverno,a.noa,a.bdate,a.edate,a.money
+from carInsure a
+left join car2 b on a.noa = b.carno
+where (LEN(b.driverno) > 0)
+
+declare @etc table(
+	mon nvarchar(10),
+	driverno nvarchar(10),
+	carno nvarchar(10),
+	money float
+)
+insert into @etc
+select SUBSTRING(datea,1,6),driverno,carno,sum(money)
+from etc
+where (SUBSTRING(datea,1,6) between @t_bmon and @t_emon)
+group by SUBSTRING(datea,1,6),driverno,carno
+
+declare @carLender table(
+	driverno nvarchar(10),
+	carno nvarchar(20),
+	bdate nvarchar(10),
+	edate nvarchar(10),
+	money float
+
+)
+insert into @carLender
+select b.driverno,b.carno,a.bdate,a.edate,a.installmentamount
+from carLender a
+left join car2 b on a.noa = b.carownerno
+where (LEN(b.driverno) > 0)
+
+declare @fixa table(
+	mon nvarchar(10),
+	driverno nvarchar(10),
+	carno nvarchar(20),
+	wmoney float,
+	cmoney float
+)
+insert into @fixa
+select mon,driverno,carno,SUM(wmoney),sum(cmoney)
+from fixa
+where (mon between @t_bmon and @t_emon)
+group by mon,driverno,carno
+
+declare @tmp table(
+	gno nvarchar(1),
+	rec int,
+	mon nvarchar(50),
+	carno nvarchar(20),
+	driverno nvarchar(20),
+	driver nvarchar(20),
+	tranmoney float,
+	drivermoney float,
+	salary float,
+	ticket float,
+	amoney1 float,
+	amoney2 float,
+	imoney float,
+	emny float,
+	lmoney float,
+	fmoney1 float,
+	fmoney2 float,
+	total float
+)
+insert into @tmp
+select '0',ROW_NUMBER() over (partition by a.mon order by a.driverno ),a.mon,a.carno,a.driverno,a.driver,isnull(a.tranmoney,0),isnull(a.drivermoney,0),isnull(a.salary,0),isnull(a.ticket,0),isnull(b.money1,0),isnull(b.money2,0),isnull(SUM(c.money),0),isnull(d.money ,0),isnull(SUM(e.money),0),isnull(f.wmoney,0),isnull(f.cmoney,0),0
+from @carsals a
+left join @caras b on  a.mon = b.mon and a.driverno = b.driverno 
+left join @carInsure c on a.driverno = c.driverno and (a.mon between c.bdate and c.edate)
+left join @etc d on a.mon = d.mon and a.carno = d.carno and a.driverno = d.driverno 
+left join @carLender e on a.driverno = e.driverno and (a.mon between e.bdate and e.edate)
+left join @fixa f on a.mon = f.mon and a.carno = f.carno and a.driverno = f.driverno
+group by a.mon,a.carno,a.driverno,a.driver,a.tranmoney,a.drivermoney,a.salary,a.ticket,b.money1,b.money2,d.money,f.wmoney,f.cmoney
+order by a.driverno
+
+update @tmp set total = tranmoney - drivermoney - salary - ticket - amoney1 - amoney2 - imoney - emny - lmoney - fmoney1 - fmoney2
+
+insert into @tmp (gno,mon,tranmoney,drivermoney,salary,ticket,amoney1,amoney2,imoney,emny,lmoney,fmoney1,fmoney2,total)
+select '1',mon,SUM(tranmoney),SUM(drivermoney),SUM(salary),SUM(ticket),SUM(amoney1),SUM(amoney2),SUM(imoney),SUM(emny),SUM(lmoney),SUM(fmoney1),SUM(fmoney2),SUM(total)
+from @tmp group by mon
+
+update @tmp set mon = SUBSTRING(mon,5,6) + '月份車輛營運成本分析表'
+
+select gno,mon,rec,carno,driverno,driver,dbo.getComma(tranmoney,0)tranmoney,dbo.getComma(drivermoney,0)drivermoney,dbo.getComma(salary,0)salary,dbo.getComma(ticket,0)ticket,
+	   dbo.getComma(amoney1,0)amoney1,dbo.getComma(amoney2,0)amoney2,dbo.getComma(imoney,0)imoney,dbo.getComma(emny,0)emny,
+	   dbo.getComma(lmoney,0)lmoney,dbo.getComma(fmoney1,0)fmoney1,dbo.getComma(fmoney2,0)fmoney2,dbo.getComma(total,0)total
+from @tmp order by mon,gno,driverno;
+>>>>>>> e3a2d648a6f2ac975bf1ba5423865d43ff9f8037

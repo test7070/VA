@@ -59,12 +59,19 @@
                         type : '8',
                         name : 'xoption01',
                         value : q_getMsg('toption01').split('&')
+                    },{/*3-1 [15][16]*/
+                        type : '1',
+                        name : 'datea'
+                    }, {/*3-2 [17]*/
+                        type : '6',
+                        name : 'xyear'
                     }]
                 });
                 q_popAssign();
 				q_getFormat();
 				q_langShow();
 
+				$('#txtXyear').mask('999');
 				
 				$('#txtMon1').mask('999/99');
 				$('#txtMon2').mask('999/99');
@@ -87,6 +94,11 @@
                 $('#txtDeadline').mask('999/99/99');
                 $('#txtDeadline').datepicker();
 				
+				$('#txtDatea1').mask('999/99/99');
+                $('#txtDatea1').datepicker();
+                $('#txtDatea2').mask('999/99/99');
+                $('#txtDatea2').datepicker();
+                
 				var t_date, t_year, t_month, t_day;
 				t_date = new Date();
 				t_date.setDate(1);

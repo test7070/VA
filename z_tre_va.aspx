@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" dir="ltr" >
 	<head>
 		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-		<title></title>
+		<title> </title>
 		<script src="../script/jquery.min.js" type="text/javascript"></script>
 		<script src='../script/qj2.js' type="text/javascript"></script>
 		<script src='qset.js' type="text/javascript"></script>
@@ -52,16 +52,30 @@
 				q_getFormat();
 				q_langShow();
 
+                               			
+				t_date = new Date();
+				t_date.setDate(35);
+				t_date.setDate(0);
+				t_year = t_date.getUTCFullYear() - 1911;
+				t_year = t_year > 99 ? t_year + '' : '0' + t_year;
+				t_month = t_date.getUTCMonth() + 1;
+				t_month = t_month > 9 ? t_month + '' : '0' + t_month;
+				t_day = t_date.getUTCDate();
+				t_day = t_day > 9 ? t_day + '' : '0' + t_day;
+				$('#txtMon1').val(t_year + '/' + t_month);
 				
-				$('#txtMon1').mask('999/99');
-				$('#txtMon2').mask('999/99');
+				t_date = new Date();
+				t_date.setDate(35);
+				t_date.setDate(0);
+				t_year = t_date.getUTCFullYear() - 1911;
+				t_year = t_year > 99 ? t_year + '' : '0' + t_year;
+				t_month = t_date.getUTCMonth() + 1;
+				t_month = t_month > 9 ? t_month + '' : '0' + t_month;
+				t_day = t_date.getUTCDate();
+				t_day = t_day > 9 ? t_day + '' : '0' + t_day;
+				$('#txtMon2').val(t_year + '/' + t_month);
 			
-				$('#txtDate1').mask('999/99/99');
-                $('#txtDate1').datepicker();
-                $('#txtDate2').mask('999/99/99');
-                $('#txtDate2').datepicker();
-                               
-				
+
 				var t_date, t_year, t_month, t_day;
 				t_date = new Date();
 				t_date.setDate(1);
@@ -82,9 +96,16 @@
 				t_month = t_month > 9 ? t_month + '' : '0' + t_month;
 				t_day = t_date.getUTCDate();
 				t_day = t_day > 9 ? t_day + '' : '0' + t_day;
-				$('#txtMon1').val(t_year + '/' + t_month);
-						
+				$('#txtDate2').val(t_year + '/' + t_month + '/' + t_day );
+
 				
+				$('#txtDate1').mask('999/99/99');
+                $('#txtDate1').datepicker();
+                $('#txtDate2').mask('999/99/99');
+                $('#txtDate2').datepicker();
+                               
+				$('#txtMon1').mask('999/99');
+				$('#txtMon2').mask('999/99');	
 			}
 
 			function q_boxClose(s2) {
@@ -99,10 +120,10 @@
 	ondragover="event.dataTransfer.dropEffect='none';event.stopPropagation(); event.preventDefault();"
 	ondrop="event.dataTransfer.dropEffect='none';event.stopPropagation(); event.preventDefault();"
 	>
-		<div id="q_menu"></div>
+		<div id="q_menu"> </div>
 		<div style="position: absolute;top: 10px;left:50px;z-index: 1;width:2000px;">
 			<div id="container">
-				<div id="q_report"></div>
+				<div id="q_report"> </div>
 			</div>
 			<div class="prt" style="margin-left: -40px;">
                 <!--#include file="../inc/print_ctrl.inc"-->
