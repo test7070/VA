@@ -17,7 +17,6 @@ set @t_po = case when '#non'=[10] then '' else [10] end
 set @t_option01 = case when '#non'=[11] then '' else [11] end
 
 ---------------------------------------------------------------------------------
-
 declare @tmp table(
 	gno nvarchar(1),
 	rno int,
@@ -28,7 +27,7 @@ declare @tmp table(
 	custaddr nvarchar(100),
 	custtel nvarchar(100),
 	trandate nvarchar(10),
-	po nvarchar(20),
+	po nvarchar(max),
 	carno nvarchar(20),
 	product nvarchar(20),
 	straddr nvarchar(max),
@@ -360,6 +359,7 @@ begin
 end  ;
 
 
+
 -*******************************************************************************
 
 z_trd_va02:--z_trd_va02
@@ -423,7 +423,6 @@ set @t_vccano = case when '#non'=[7] then '' else [7] end
 set @t_po = case when '#non'=[10] then '' else [10] end
 
 ---------------------------------------------------------------------------------
-
 declare @tmp table(
 	gno nvarchar(10),
 	rno int,
@@ -434,7 +433,7 @@ declare @tmp table(
 	custaddr nvarchar(100),
 	custtel nvarchar(100),
 	trandate nvarchar(10),
-	po nvarchar(20),
+	po nvarchar(max),
 	carno nvarchar(20),
 	product nvarchar(20),
 	straddr nvarchar(max),

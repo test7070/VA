@@ -4,16 +4,17 @@ declare @t_bdate nvarchar(10)
 declare @t_edate nvarchar(10)
 declare @t_bdriverno nvarchar(20)
 declare @t_edriverno nvarchar(20)
-declare @t_po nvarchar(20)
+declare @t_po nvarchar(max)
+declare @t_mon nvarchar(10)
 
 set @t_bdate = case when '#non'=[3] then '' else [3] end
 set @t_edate = case when '#non'=[4] then char(255) else [4] end
 set @t_bdriverno = case when '#non'=[5] then '' else [5] end
 set @t_edriverno = case when '#non'=[6] then char(255) else [6] end
 set @t_po = case when '#non'=[7] then '' else [7] end
+set @t_mon = case when '#non'=[8] then '' else [8] end
 
 ---------------------------------------------------------------------------------
-
 declare @tmp table(
 	gno nvarchar(1),
 	cartype nvarchar(20),
@@ -21,7 +22,7 @@ declare @tmp table(
 	driver nvarchar(20),
 	tel nvarchar(20),
 	trandate nvarchar(10),
-	po nvarchar(20),
+	po nvarchar(max),
 	carno nvarchar(20),
 	product nvarchar(40),
 	straddr nvarchar(50),
@@ -190,7 +191,7 @@ from @tmp where gno = '3'
 
 
 select 
-	gno,driverno,
+	gno,@t_mon mm,driverno,
 	case when cartype = '公司車' then '司機名稱：' + driver else '車主名稱：' + driver end driver,
 	tel,trandate,po,carno,product,straddr,endaddr,mount,dbo.getComma(price,1) price,dbo.getComma(money,0) money,
 	item,dbo.getComma(plusmoney,0) plusmoney,dbo.getComma(minusmoney,0) minusmoney,memo
@@ -206,12 +207,13 @@ declare @t_bdate nvarchar(10)
 declare @t_edate nvarchar(10)
 declare @t_bdriverno nvarchar(20)
 declare @t_edriverno nvarchar(20)
+declare @t_mon nvarchar(10)
 
 set @t_bdate = case when '#non'=[3] then '' else [3] end
 set @t_edate = case when '#non'=[4] then char(255) else [4] end
 set @t_bdriverno = case when '#non'=[5] then '' else [5] end
 set @t_edriverno = case when '#non'=[6] then char(255) else [6] end
-
+set @t_mon = case when '#non'=[8] then '' else [8] end
 ---------------------------------------------------------------------------------
 
 declare @tmp table(
@@ -234,7 +236,7 @@ select '1',SUM(money),SUM(total)
 from @tmp where gno = '0'
 
 select 
-	gno, ROW_NUMBER() over (partition by gno order by driverno) rno,driver,
+	gno,@t_mon mm,ROW_NUMBER() over (partition by gno order by driverno) rno,driver,
 	dbo.getComma(money,0) money,dbo.getComma(total,0) total
 from @tmp order by gno  ;
 
@@ -247,13 +249,15 @@ declare @t_bdate nvarchar(10)
 declare @t_edate nvarchar(10)
 declare @t_bdriverno nvarchar(20)
 declare @t_edriverno nvarchar(20)
-declare @t_po nvarchar(20)
+declare @t_po nvarchar(max)
+declare @t_mon nvarchar(10)
 
 set @t_bdate = case when '#non'=[3] then '' else [3] end
 set @t_edate = case when '#non'=[4] then char(255) else [4] end
 set @t_bdriverno = case when '#non'=[5] then '' else [5] end
 set @t_edriverno = case when '#non'=[6] then char(255) else [6] end
 set @t_po = case when '#non'=[7] then '' else [7] end
+set @t_mon = case when '#non'=[8] then '' else [8] end
 
 ---------------------------------------------------------------------------------
 
@@ -264,7 +268,7 @@ declare @tmp table(
 	driver nvarchar(20),
 	tel nvarchar(20),
 	trandate nvarchar(10),
-	po nvarchar(20),
+	po nvarchar(max),
 	carno nvarchar(20),
 	product nvarchar(40),
 	straddr nvarchar(50),
@@ -439,7 +443,7 @@ from @tmp where gno = '3'
 
 
 select 
-	gno,driverno,
+	gno,@t_mon mm,driverno,
 	case when cartype = '公司車' then '司機名稱：' + driver else '車主名稱：' + driver end driver,
 	tel,trandate,carno,mount,dbo.getComma(money,0) money,
 	item,dbo.getComma(plusmoney,0) plusmoney,dbo.getComma(minusmoney,0) minusmoney,memo
