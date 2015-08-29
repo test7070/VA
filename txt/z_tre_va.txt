@@ -193,7 +193,7 @@ from @tmp where gno = '3'
 select 
 	gno,@t_mon mm,driverno,
 	case when cartype = '公司車' then '司機名稱：' + driver else '車主名稱：' + driver end driver,
-	tel,trandate,po,carno,product,straddr,endaddr,mount,dbo.getComma(price,1) price,dbo.getComma(money,0) money,
+	tel,trandate,po,carno,product,straddr,endaddr,dbo.getComma(mount,2) mount,dbo.getComma(price,0) price,dbo.getComma(money,0) money,
 	item,dbo.getComma(plusmoney,0) plusmoney,dbo.getComma(minusmoney,0) minusmoney,memo
 from @tmp order by driverno,gno,trandate;
  
@@ -445,6 +445,6 @@ from @tmp where gno = '3'
 select 
 	gno,@t_mon mm,driverno,
 	case when cartype = '公司車' then '司機名稱：' + driver else '車主名稱：' + driver end driver,
-	tel,trandate,carno,mount,dbo.getComma(money,0) money,
+	tel,trandate,carno,dbo.getComma(mount,2) mount,dbo.getComma(money,0) money,
 	item,dbo.getComma(plusmoney,0) plusmoney,dbo.getComma(minusmoney,0) minusmoney,memo
 from @tmp order by driverno,gno,trandate;
