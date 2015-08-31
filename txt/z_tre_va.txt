@@ -2,6 +2,8 @@ z_tre_va01:--z_tre_va01
 
 declare @t_bdate nvarchar(10)
 declare @t_edate nvarchar(10)
+declare @t_btdate nvarchar(10)
+declare @t_etdate nvarchar(10)
 declare @t_bdriverno nvarchar(20)
 declare @t_edriverno nvarchar(20)
 declare @t_po nvarchar(max)
@@ -9,10 +11,12 @@ declare @t_mon nvarchar(10)
 
 set @t_bdate = case when '#non'=[3] then '' else [3] end
 set @t_edate = case when '#non'=[4] then char(255) else [4] end
-set @t_bdriverno = case when '#non'=[5] then '' else [5] end
-set @t_edriverno = case when '#non'=[6] then char(255) else [6] end
-set @t_po = case when '#non'=[7] then '' else [7] end
-set @t_mon = case when '#non'=[8] then '' else [8] end
+set @t_btdate = case when '#non'=[5] then '' else [5] end
+set @t_etdate = case when '#non'=[6] then char(255) else [6] end
+set @t_bdriverno = case when '#non'=[7] then '' else [7] end
+set @t_edriverno = case when '#non'=[8] then char(255) else [8] end
+set @t_po = case when '#non'=[9] then '' else [9] end
+set @t_mon = case when '#non'=[10] then '' else [10] end
 
 ---------------------------------------------------------------------------------
 declare @tmp table(
@@ -45,7 +49,8 @@ from view_tre a
 left join view_tres b on a.noa = b.noa  
 left join view_trans c on b.tranno = c.noa and b.trannoq = c.noq
 left join driver d on a.driverno = d.noa
-where (a.datea between @t_bdate and @t_edate) and (LEN(a.driverno) > 0) and (a.driverno between @t_bdriverno and @t_edriverno) and (LEN(@t_po)=0 or c.po = @t_po)
+where (a.datea between @t_bdate and @t_edate) and (b.trandate between @t_btdate and @t_etdate) and
+	  (LEN(a.driverno) > 0) and (a.driverno between @t_bdriverno and @t_edriverno) and (LEN(@t_po)=0 or c.po = @t_po)
 
 declare @driverno nvarchar(20)
 declare @driver nvarchar(20)
@@ -72,14 +77,17 @@ begin
 	if(@xcarchgno != @carchgno and LEN(@carchgno) = 12)
 	begin
 		set @str = @carchgno 
-		set @date = (select datea from carchg where noa = @str)
-		set @pitem = (select plusitem from carchg where noa = @str)
-		set @mitem = (select minusitem from carchg where noa = @str)
-		set @pmny = (select plusmoney from carchg where noa = @str)
-		set @mmny = (select minusmoney from carchg where noa = @str)
-		set @memo = (select memo from carchg where noa = @str)
-		insert into @tmp(gno,driverno,driver,trandate,carchgno,item,plusmoney,minusmoney,memo)
-		values('2',@driverno,@driver,@date,@carchgno,@pitem+@mitem,@pmny,@mmny,@memo)
+		set @date = (select datea from carchg where noa = @str and datea between @t_btdate and @t_etdate)
+		set @pitem = (select plusitem from carchg where noa = @str and datea between @t_btdate and @t_etdate)
+		set @mitem = (select minusitem from carchg where noa = @str and datea between @t_btdate and @t_etdate)
+		set @pmny = (select plusmoney from carchg where noa = @str and datea between @t_btdate and @t_etdate)
+		set @mmny = (select minusmoney from carchg where noa = @str and datea between @t_btdate and @t_etdate)
+		set @memo = (select memo from carchg where noa = @str and datea between @t_btdate and @t_etdate)
+		if(@date is not null)
+		begin
+			insert into @tmp(gno,driverno,driver,trandate,carchgno,item,plusmoney,minusmoney,memo)
+			values('2',@driverno,@driver,@date,@carchgno,@pitem+@mitem,@pmny,@mmny,@memo)
+		end	
 		set @xcarchgno = @carchgno
 	end
 	else if(@xcarchgno != @carchgno and LEN(@carchgno) > 12)
@@ -91,26 +99,32 @@ begin
 			
 			if(LEN(@str) > 12)
 			begin
-				set @date = (select datea from carchg where noa = @sub)
-				set @pitem = (select plusitem from carchg where noa = @sub)
-				set @mitem = (select minusitem from carchg where noa = @sub)
-				set @pmny = (select plusmoney from carchg where noa = @sub)
-				set @mmny = (select minusmoney from carchg where noa = @sub)
-				set @memo = (select memo from carchg where noa = @sub)
-				insert into @tmp(gno,driverno,driver,trandate,carchgno,item,plusmoney,minusmoney,memo)
-				values('2',@driverno,@driver,@date,@sub,@pitem+@mitem,@pmny,@mmny,@memo)
+				set @date = (select datea from carchg where noa = @sub and datea between @t_btdate and @t_etdate)
+				set @pitem = (select plusitem from carchg where noa = @sub and datea between @t_btdate and @t_etdate)
+				set @mitem = (select minusitem from carchg where noa = @sub and datea between @t_btdate and @t_etdate)
+				set @pmny = (select plusmoney from carchg where noa = @sub and datea between @t_btdate and @t_etdate)
+				set @mmny = (select minusmoney from carchg where noa = @sub and datea between @t_btdate and @t_etdate)
+				set @memo = (select memo from carchg where noa = @sub and datea between @t_btdate and @t_etdate)
+				if(@date is not null)
+				begin
+					insert into @tmp(gno,driverno,driver,trandate,carchgno,item,plusmoney,minusmoney,memo)
+					values('2',@driverno,@driver,@date,@sub,@pitem+@mitem,@pmny,@mmny,@memo)
+				end	
 				set @str = RIGHT(@str,LEN(@str)-13)	
 			end
 			else if(LEN(@str) = 12)
 			begin
-				set @date = (select datea from carchg where noa = @sub)
-				set @pitem = (select plusitem from carchg where noa = @sub)
-				set @mitem = (select minusitem from carchg where noa = @sub)
-				set @pmny = (select plusmoney from carchg where noa = @sub)
-				set @mmny = (select minusmoney from carchg where noa = @sub)
-				set @memo = (select memo from carchg where noa = @sub)
-				insert into @tmp(gno,driverno,driver,trandate,carchgno,item,plusmoney,minusmoney,memo)
-				values('2',@driverno,@driver,@date,@sub,@pitem+@mitem,@pmny,@mmny,@memo)			
+				set @date = (select datea from carchg where noa = @sub and datea between @t_btdate and @t_etdate)
+				set @pitem = (select plusitem from carchg where noa = @sub and datea between @t_btdate and @t_etdate)
+				set @mitem = (select minusitem from carchg where noa = @sub and datea between @t_btdate and @t_etdate)
+				set @pmny = (select plusmoney from carchg where noa = @sub and datea between @t_btdate and @t_etdate)
+				set @mmny = (select minusmoney from carchg where noa = @sub and datea between @t_btdate and @t_etdate)
+				set @memo = (select memo from carchg where noa = @sub and datea between @t_btdate and @t_etdate)
+				if(@date is not null)
+				begin
+					insert into @tmp(gno,driverno,driver,trandate,carchgno,item,plusmoney,minusmoney,memo)
+					values('2',@driverno,@driver,@date,@sub,@pitem+@mitem,@pmny,@mmny,@memo)	
+				end		
 				set @str = ''
 			end
 			set @xcarchgno = @carchgno			
@@ -211,9 +225,9 @@ declare @t_mon nvarchar(10)
 
 set @t_bdate = case when '#non'=[3] then '' else [3] end
 set @t_edate = case when '#non'=[4] then char(255) else [4] end
-set @t_bdriverno = case when '#non'=[5] then '' else [5] end
-set @t_edriverno = case when '#non'=[6] then char(255) else [6] end
-set @t_mon = case when '#non'=[8] then '' else [8] end
+set @t_bdriverno = case when '#non'=[7] then '' else [7] end
+set @t_edriverno = case when '#non'=[8] then char(255) else [8] end
+set @t_mon = case when '#non'=[10] then '' else [10] end
 ---------------------------------------------------------------------------------
 
 declare @tmp table(
@@ -246,6 +260,8 @@ from @tmp order by gno  ;
 z_tre_va03:--z_tre_va03
 
 declare @t_bdate nvarchar(10)
+declare @t_etdate nvarchar(10)
+declare @t_btdate nvarchar(10)
 declare @t_edate nvarchar(10)
 declare @t_bdriverno nvarchar(20)
 declare @t_edriverno nvarchar(20)
@@ -254,13 +270,14 @@ declare @t_mon nvarchar(10)
 
 set @t_bdate = case when '#non'=[3] then '' else [3] end
 set @t_edate = case when '#non'=[4] then char(255) else [4] end
-set @t_bdriverno = case when '#non'=[5] then '' else [5] end
-set @t_edriverno = case when '#non'=[6] then char(255) else [6] end
-set @t_po = case when '#non'=[7] then '' else [7] end
-set @t_mon = case when '#non'=[8] then '' else [8] end
+set @t_btdate = case when '#non'=[5] then '' else [5] end
+set @t_etdate = case when '#non'=[6] then char(255) else [6] end
+set @t_bdriverno = case when '#non'=[7] then '' else [7] end
+set @t_edriverno = case when '#non'=[8] then char(255) else [8] end
+set @t_po = case when '#non'=[9] then '' else [9] end
+set @t_mon = case when '#non'=[10] then '' else [10] end
 
 ---------------------------------------------------------------------------------
-
 declare @tmp table(
 	gno nvarchar(1),
 	cartype nvarchar(20),
@@ -291,7 +308,8 @@ from view_tre a
 left join view_tres b on a.noa = b.noa  
 left join view_trans c on b.tranno = c.noa and b.trannoq = c.noq
 left join driver d on a.driverno = d.noa
-where (a.datea between @t_bdate and @t_edate) and (LEN(a.driverno) > 0) and (a.driverno between @t_bdriverno and @t_edriverno) and (LEN(@t_po)=0 or c.po = @t_po)
+where (a.datea between @t_bdate and @t_edate) and (b.trandate between @t_btdate and @t_etdate) and 
+	  (LEN(a.driverno) > 0) and (a.driverno between @t_bdriverno and @t_edriverno) and (LEN(@t_po)=0 or c.po = @t_po)
 
 declare @driverno nvarchar(20)
 declare @driver nvarchar(20)
@@ -318,14 +336,17 @@ begin
 	if(@xcarchgno != @carchgno and LEN(@carchgno) = 12)
 	begin
 		set @str = @carchgno 
-		set @date = (select datea from carchg where noa = @str)
-		set @pitem = (select plusitem from carchg where noa = @str)
-		set @mitem = (select minusitem from carchg where noa = @str)
-		set @pmny = (select plusmoney from carchg where noa = @str)
-		set @mmny = (select minusmoney from carchg where noa = @str)
-		set @memo = (select memo from carchg where noa = @str)
-		insert into @tmp(gno,driverno,driver,trandate,carchgno,item,plusmoney,minusmoney,memo)
-		values('2',@driverno,@driver,@date,@carchgno,@pitem+@mitem,@pmny,@mmny,@memo)
+		set @date = (select datea from carchg where noa = @str and datea between @t_btdate and @t_etdate)
+		set @pitem = (select plusitem from carchg where noa = @str and datea between @t_btdate and @t_etdate)
+		set @mitem = (select minusitem from carchg where noa = @str and datea between @t_btdate and @t_etdate)
+		set @pmny = (select plusmoney from carchg where noa = @str and datea between @t_btdate and @t_etdate)
+		set @mmny = (select minusmoney from carchg where noa = @str and datea between @t_btdate and @t_etdate)
+		set @memo = (select memo from carchg where noa = @str and datea between @t_btdate and @t_etdate)
+		if(@date is not null)
+		begin
+			insert into @tmp(gno,driverno,driver,trandate,carchgno,item,plusmoney,minusmoney,memo)
+			values('2',@driverno,@driver,@date,@carchgno,@pitem+@mitem,@pmny,@mmny,@memo)
+		end	
 		set @xcarchgno = @carchgno
 	end
 	else if(@xcarchgno != @carchgno and LEN(@carchgno) > 12)
@@ -337,26 +358,32 @@ begin
 			
 			if(LEN(@str) > 12)
 			begin
-				set @date = (select datea from carchg where noa = @sub)
-				set @pitem = (select plusitem from carchg where noa = @sub)
-				set @mitem = (select minusitem from carchg where noa = @sub)
-				set @pmny = (select plusmoney from carchg where noa = @sub)
-				set @mmny = (select minusmoney from carchg where noa = @sub)
-				set @memo = (select memo from carchg where noa = @sub)
-				insert into @tmp(gno,driverno,driver,trandate,carchgno,item,plusmoney,minusmoney,memo)
-				values('2',@driverno,@driver,@date,@sub,@pitem+@mitem,@pmny,@mmny,@memo)
+				set @date = (select datea from carchg where noa = @sub and datea between @t_btdate and @t_etdate)
+				set @pitem = (select plusitem from carchg where noa = @sub and datea between @t_btdate and @t_etdate)
+				set @mitem = (select minusitem from carchg where noa = @sub and datea between @t_btdate and @t_etdate)
+				set @pmny = (select plusmoney from carchg where noa = @sub and datea between @t_btdate and @t_etdate)
+				set @mmny = (select minusmoney from carchg where noa = @sub and datea between @t_btdate and @t_etdate)
+				set @memo = (select memo from carchg where noa = @sub and datea between @t_btdate and @t_etdate)
+				if(@date is not null)
+				begin
+					insert into @tmp(gno,driverno,driver,trandate,carchgno,item,plusmoney,minusmoney,memo)
+					values('2',@driverno,@driver,@date,@sub,@pitem+@mitem,@pmny,@mmny,@memo)
+				end
 				set @str = RIGHT(@str,LEN(@str)-13)	
 			end
 			else if(LEN(@str) = 12)
 			begin
-				set @date = (select datea from carchg where noa = @sub)
-				set @pitem = (select plusitem from carchg where noa = @sub)
-				set @mitem = (select minusitem from carchg where noa = @sub)
-				set @pmny = (select plusmoney from carchg where noa = @sub)
-				set @mmny = (select minusmoney from carchg where noa = @sub)
-				set @memo = (select memo from carchg where noa = @sub)
-				insert into @tmp(gno,driverno,driver,trandate,carchgno,item,plusmoney,minusmoney,memo)
-				values('2',@driverno,@driver,@date,@sub,@pitem+@mitem,@pmny,@mmny,@memo)			
+				set @date = (select datea from carchg where noa = @sub and datea between @t_btdate and @t_etdate)
+				set @pitem = (select plusitem from carchg where noa = @sub and datea between @t_btdate and @t_etdate)
+				set @mitem = (select minusitem from carchg where noa = @sub and datea between @t_btdate and @t_etdate)
+				set @pmny = (select plusmoney from carchg where noa = @sub and datea between @t_btdate and @t_etdate)
+				set @mmny = (select minusmoney from carchg where noa = @sub and datea between @t_btdate and @t_etdate)
+				set @memo = (select memo from carchg where noa = @sub and datea between @t_btdate and @t_etdate)
+				if(@date is not null)
+				begin
+					insert into @tmp(gno,driverno,driver,trandate,carchgno,item,plusmoney,minusmoney,memo)
+					values('2',@driverno,@driver,@date,@sub,@pitem+@mitem,@pmny,@mmny,@memo)			
+				end
 				set @str = ''
 			end
 			set @xcarchgno = @carchgno			

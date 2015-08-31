@@ -38,15 +38,18 @@
                         type : '1',
                         name : 'date'
                     }, {/*1-2 [5][6]*/
+                        type : '1',
+                        name : 'tdate'
+                    }, {/*1-3 [7][8]*/
                         type : '2',
                         name : 'driver',
                         dbf : 'driver',
                         index : 'noa,namea',
                         src : 'driver_b.aspx'
-                    }, {/*1-3 [7]*/
+                    }, {/*1-4 [9]*/
                         type : '6',
                         name : 'xpo'
-                    }, {/*1-4 [8]*/
+                    }, {/*2-1 [10]*/
                         type : '6',
                         name : 'xmon'
                     }]
@@ -83,6 +86,11 @@
                 $('#txtDate1').datepicker();
                 $('#txtDate2').mask('999/99/99');
                 $('#txtDate2').datepicker();
+                
+                $('#txtTdate1').mask('999/99/99');
+                $('#txtTdate1').datepicker();
+                $('#txtTdate2').mask('999/99/99');
+                $('#txtTdate2').datepicker();
                                	
 			}
 
