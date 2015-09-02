@@ -706,45 +706,13 @@ insert into @tmp(gno,driverno,driver,money)
 select '4',driverno,driver,(money + plusmoney - minusmoney)
 from @tmp where gno = '3'
 
-declare @trandate nvarchar(10)
-declare @xtrandate nvarchar(10)
-declare @addr nvarchar(max)
+insert into @tmp(gno,driverno,driver,tel,trandate,carno,straddr,mount,price,money)
+select '0',driverno,driver,tel,trandate,carno,straddr,SUM(mount),price,SUM(money)
+from @tmp where gno = '9' and straddr != '洗櫃' group by driverno,driver,tel,trandate,carno,straddr,price
 
-set @xdriverno = 'xxxxxx'
-set @xtrandate = 'xxxxxx'
-
-declare cursor_table cursor for 
-select driverno,trandate from @tmp where gno = '9' and straddr != '洗櫃' order by driverno,trandate
-open cursor_table 
-fetch next from cursor_table 
-into @driverno,@trandate
-while(@@FETCH_STATUS <> -1) 
-begin
-	if(@driverno != @xdriverno or @trandate != @xtrandate)
-	begin
-		set @xdriverno = @driverno
-		set @xtrandate = @trandate
-		set @addr = (select top 1 straddr from @tmp where driverno = @driverno and trandate = @trandate)
-		print @addr
-	end
-	if(@driverno = @xdriverno or @trandate = @xtrandate)
-	begin
-		update @tmp set straddr = @addr where driverno = @driverno and trandate = @trandate and straddr != '洗櫃'
-	end
-	
-	fetch next from cursor_table 
-	into @driverno,@trandate
-end 
-close cursor_table 
-deallocate cursor_table
-
-insert into @tmp(gno,driverno,driver,tel,trandate,carno,straddr,mount,money)
-select '0',driverno,driver,tel,trandate,carno,MIN(straddr),SUM(mount),SUM(money)
-from @tmp where gno = '9' and straddr != '洗櫃' group by driverno,driver,tel,trandate,carno
-
-insert into @tmp(gno,driverno,driver,tel,trandate,carno,straddr,mount,money)
-select '0',driverno,driver,tel,trandate,carno,straddr,SUM(mount),SUM(money)
-from @tmp where gno = '9' and straddr = '洗櫃' group by driverno,driver,tel,trandate,carno,straddr
+insert into @tmp(gno,driverno,driver,tel,trandate,carno,straddr,mount,price,money)
+select '0',driverno,driver,tel,trandate,carno,straddr,SUM(mount),price,SUM(money)
+from @tmp where gno = '9' and straddr = '洗櫃' group by driverno,driver,tel,trandate,carno,straddr,price
 
 delete @tmp where gno = '9'
 
@@ -754,4 +722,3 @@ select
 	tel,trandate,po,carno,product,straddr,endaddr,dbo.getComma(mount,2) mount,dbo.getComma(price,0) price,dbo.getComma(money,0) money,
 	item,dbo.getComma(plusmoney,0) plusmoney,dbo.getComma(minusmoney,0) minusmoney,memo
 from @tmp order by driverno,gno,trandate  ;
- 
