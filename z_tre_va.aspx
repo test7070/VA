@@ -38,42 +38,25 @@
                         type : '1',
                         name : 'date'
                     }, {/*1-2 [5][6]*/
+                        type : '1',
+                        name : 'tdate'
+                    }, {/*1-3 [7][8]*/
                         type : '2',
                         name : 'driver',
                         dbf : 'driver',
                         index : 'noa,namea',
                         src : 'driver_b.aspx'
-                    }, {/*1-3 [7]*/
+                    }, {/*1-4 [9]*/
                         type : '6',
                         name : 'xpo'
+                    }, {/*2-1 [10]*/
+                        type : '6',
+                        name : 'xmon'
                     }]
                 });
                 q_popAssign();
 				q_getFormat();
 				q_langShow();
-
-                               			
-				t_date = new Date();
-				t_date.setDate(35);
-				t_date.setDate(0);
-				t_year = t_date.getUTCFullYear() - 1911;
-				t_year = t_year > 99 ? t_year + '' : '0' + t_year;
-				t_month = t_date.getUTCMonth() + 1;
-				t_month = t_month > 9 ? t_month + '' : '0' + t_month;
-				t_day = t_date.getUTCDate();
-				t_day = t_day > 9 ? t_day + '' : '0' + t_day;
-				$('#txtMon1').val(t_year + '/' + t_month);
-				
-				t_date = new Date();
-				t_date.setDate(35);
-				t_date.setDate(0);
-				t_year = t_date.getUTCFullYear() - 1911;
-				t_year = t_year > 99 ? t_year + '' : '0' + t_year;
-				t_month = t_date.getUTCMonth() + 1;
-				t_month = t_month > 9 ? t_month + '' : '0' + t_month;
-				t_day = t_date.getUTCDate();
-				t_day = t_day > 9 ? t_day + '' : '0' + t_day;
-				$('#txtMon2').val(t_year + '/' + t_month);
 			
 
 				var t_date, t_year, t_month, t_day;
@@ -103,9 +86,12 @@
                 $('#txtDate1').datepicker();
                 $('#txtDate2').mask('999/99/99');
                 $('#txtDate2').datepicker();
-                               
-				$('#txtMon1').mask('999/99');
-				$('#txtMon2').mask('999/99');	
+                
+                $('#txtTdate1').mask('999/99/99');
+                $('#txtTdate1').datepicker();
+                $('#txtTdate2').mask('999/99/99');
+                $('#txtTdate2').datepicker();
+                               	
 			}
 
 			function q_boxClose(s2) {

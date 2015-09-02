@@ -17,9 +17,8 @@ set @t_po = case when '#non'=[10] then '' else [10] end
 set @t_option01 = case when '#non'=[11] then '' else [11] end
 
 ---------------------------------------------------------------------------------
-
 declare @tmp table(
-	gno nvarchar(1),
+	gno nvarchar(2),
 	rno int,
 	noa nvarchar(30),
 	mon nvarchar(10),
@@ -28,11 +27,12 @@ declare @tmp table(
 	custaddr nvarchar(100),
 	custtel nvarchar(100),
 	trandate nvarchar(10),
-	po nvarchar(20),
+	po nvarchar(max),
 	carno nvarchar(20),
 	product nvarchar(20),
 	straddr nvarchar(max),
 	endaddr nvarchar(max),	
+	trtype nvarchar(10),
 	mount decimal(18,3),
 	price decimal(18,3),
 	pton decimal(18,3),
@@ -50,22 +50,19 @@ declare @tmp table(
 )
 
 insert into @tmp 
-select '2',ROW_NUMBER() over (order by b.noa,d.trandate),b.noa,b.mon,a.noa,a.comp,a.addr_comp,
+select '2',ROW_NUMBER() over (order by b.custno,d.trandate),b.noa,b.mon,a.noa,a.comp,a.addr_comp,
 	   case when LEN(a.tel) = 0 then a.mobile else a.tel end,
-	   d.trandate,b.po,d.carno,d.product,d.straddr,d.endaddr,d.mount,d.price,d.pton,d.total,d.memo,b.vccano,'','','',b.custchgno,'',0,0,b.worker
+	   d.trandate,b.po,d.carno,d.product,d.straddr,d.endaddr,b.trtype,d.mount,d.price,d.pton,d.total,d.memo,b.vccano,'','','',b.custchgno,'',0,0,b.worker
 from cust a
 left join view_trd b on a.noa = b.custno
 left join view_trds c on b.noa = c.noa
 left join view_trans d on c.tranno = d.noa and c.trannoq = d.noq
 where (a.noa between @t_bcustno and @t_ecustno) and (b.datea between @t_bdate and @t_edate) and
 	  (LEN(@t_vccano) = 0 or b.vccano = @t_vccano) and (LEN(@t_po) = 0 or b.po = @t_po)
-order by b.noa
+order by b.custno
 
-if(patindex('%sel1%',@t_option01) = 0)
-begin
-	insert into @tmp(gno,noa,vno,tmoney,tax,ttotal,worker)
-	select '5',noa,vccano,money,tax,total,worker
-	from view_trd where (custno between @t_bcustno and @t_ecustno) and (datea between @t_bdate and @t_edate) and (LEN(@t_vccano) = 0 or vccano = @t_vccano) and (LEN(@t_po) = 0 or po = @t_po)
+	update @tmp set trtype = case when isnull(trtype,'') = '' then '0' else trtype end
+	update @tmp set total = total*(1-(CAST(trtype as float)/100))
 
 	declare @noa nvarchar(30)
 	declare @xnoa nvarchar(30)
@@ -85,7 +82,7 @@ begin
 
 	set @xnoa = 'zzzzzzzzzzzz'
 	set @xcustchgno = 'zzzzzzzzzzzz'
-
+	
 	declare cursor_table cursor for 
 	select noa,mon,custno,custchgno,worker from @tmp where gno = '2'
 	open cursor_table 
@@ -162,6 +159,14 @@ begin
 	close cursor_table 
 	deallocate cursor_table
 
+	insert into @tmp(gno,noa,custno,vno,trtype,tmoney,tax,ttotal,worker)
+	select '10',noa,custno,vccano,trtype,money,tax,total,worker
+	from view_trd where (custno between @t_bcustno and @t_ecustno) and (datea between @t_bdate and @t_edate) and (LEN(@t_vccano) = 0 or vccano = @t_vccano) and (LEN(@t_po) = 0 or po = @t_po)
+	update @tmp set trtype = case when isnull(trtype,'') = '' then '0' else trtype end where gno = '10'
+	update @tmp set tmoney = tmoney*(1-(CAST(trtype as float)/100)) where gno = '10'
+	update @tmp set tax = tax*(1-(CAST(trtype as float)/100)) where gno = '10'
+	update @tmp set ttotal = ttotal*(1-(CAST(trtype as float)/100)) where gno = '10'
+
 	declare @xmon nvarchar(30)
 	declare @xcustno nvarchar(20)
 	declare @plusmoney float
@@ -181,11 +186,11 @@ begin
 	into @noa,@mon,@custno,@plusmoney,@minusmoney
 	while(@@FETCH_STATUS <> -1) 
 	begin
-		if (@xnoa != @noa)
+		if (@custno != @xcustno)
 		begin
-			insert into @tmp (gno,noa,mon,plusmoney,minusmoney,worker)
-			select '3',MAX(noa),MAX(mon),MAX(plusmoney),MAX(minusmoney),MAX(worker)
-			from @tmp where gno ='4' and noa = @noa
+			insert into @tmp (gno,noa,custno,mon,plusmoney,minusmoney,worker)
+			select '3',MAX(noa),MAX(custno),MAX(mon),MAX(plusmoney),MAX(minusmoney),MAX(worker)
+			from @tmp where gno ='4' and custno = @custno
 		end
 		
 		if(@xnoa !=@noa or @xmon != @mon or @xcustno != @custno)
@@ -211,8 +216,8 @@ begin
 		end
 		if(@cnt = 0)
 		begin
-			update @tmp set plusmoney = @totpmny where gno = '5' and noa = @noa 
-			update @tmp set minusmoney = @totmmny where gno = '5' and noa = @noa 
+			update @tmp set plusmoney = @totpmny*(1-(CAST(trtype as float)/100)) where gno = '10' and noa = @noa 
+			update @tmp set minusmoney = @totmmny*(1-(CAST(trtype as float)/100)) where gno = '10' and noa = @noa 
 		end	
 		
 		fetch next from cursor_table 
@@ -220,147 +225,171 @@ begin
 	end 
 	close cursor_table 
 	deallocate cursor_table
+	
+	insert into @tmp(gno,custno,tmoney,tax,ttotal,plusmoney,minusmoney,worker)
+	select '5',custno,SUM(tmoney),SUM(tax),SUM(ttotal),SUM(plusmoney),SUM(minusmoney),MAX(worker)
+	from @tmp where gno = '10' group by custno
+	
+	declare @vno nvarchar(max)
+	
+	set @xcustno = 'xxxxxx'
 
+	declare cursor_table cursor for 
+	select custno,vno from @tmp where gno = '10' and LEN(isnull(vno,'')) > 0 order by custno
+	open cursor_table 
+	fetch next from cursor_table 
+	into @custno,@vno
+	while(@@FETCH_STATUS <> -1) 
+	begin
+		if(@custno != @xcustno)
+		begin
+			set @str = ''			
+		end
+		
+		set @str = @str + @vno + ','
+		if (LEN(@str) % 44 = 0)
+			set @str = @str + '<br>'
+		update @tmp set vno = @str where gno = '5' and custno = @custno
+		
+		set @xcustno = @custno
+		
+		fetch next from cursor_table 
+		into @custno,@vno 
+	end 
+	close cursor_table 
+	deallocate cursor_table 
+	
+	delete @tmp where gno = '10'
+	update @tmp set vno = case when LEN(vno) > 0 then LEFT(vno,LEN(vno)-1) else '' end where gno = '5'
+	
 	insert into @tmp(gno,noa,mon,custno,tmoney,worker)
-	select '6',noa,mon,custno,(tmoney + tax + plusmoney - minusmoney),worker
+	select '6',noa,mon,custno,(ROUND(tmoney,0) + ROUND(tax,0) + ROUND(plusmoney,0) - ROUND(minusmoney,0)),worker
 	from @tmp where gno = '5'
-
+	
 	declare @rno nvarchar(10)
-	set @xnoa = 'zzzzzzzzzzzz'
+	set @xcustno = 'zzzzzzzzzzzz'
 	set @xmon = 'zzzzzz'
 	
 	declare @custname nvarchar(100)
 	declare @custaddr nvarchar(100)
 	declare @custtel nvarchar(100)
-	
+
 	declare cursor_table cursor for 
-	select rno,noa,mon,custname,custaddr,custtel,worker from @tmp where gno = '2'
+	select rno,noa,mon,custno,custname,custaddr,custtel,worker from @tmp where gno = '2' order by custno,rno
 	open cursor_table 
 	fetch next from cursor_table 
-	into @rno,@noa,@mon,@custname,@custaddr,@custtel,@worker
+	into @rno,@noa,@mon,@custno,@custname,@custaddr,@custtel,@worker
 	while(@@FETCH_STATUS <> -1) 
 	begin
-		if(@xnoa != @noa)
+		if(@xcustno != @custno)
 		begin
 			set @cnt = 0
-			set	@xnoa = @noa			
+			set	@xcustno = @custno			
 		end				
 						
 		if((@cnt = 0) or (@cnt % 39 = 0))
 		begin
-			insert into @tmp (gno,rno,noa,mon,custname,custaddr,custtel,worker)
-			values('0',@rno,@noa,@mon,@custname,@custaddr,@custtel,@worker)
-			insert into @tmp (gno,rno,noa,mon)
-			values('1',@rno,@noa,@mon)
+			insert into @tmp (gno,rno,noa,mon,custno,custname,custaddr,custtel,worker)
+			values('0',@rno,@noa,@mon,@custno,@custname,@custaddr,@custtel,@worker)
+			insert into @tmp (gno,rno,noa,mon,custno)
+			values('1',@rno,@noa,@mon,@custno)
 		end				
 		set @cnt = @cnt + 1
-		set	@xnoa = @noa	
+		set	@xcustno = @custno	
 			
 		fetch next from cursor_table 
-		into @rno,@noa,@mon,@custname,@custaddr,@custtel,@worker
+		into @rno,@noa,@mon,@custno,@custname,@custaddr,@custtel,@worker
 	end 
 	close cursor_table 
 	deallocate cursor_table
-	
+
 	update @tmp set rno = 9999999 where gno = '3' or gno = '4' or gno = '5' or gno = '6'
 	
 	delete @tmp where gno = '3' and plusmoney = 0 and minusmoney = 0
 	delete @tmp where gno = '4' and plusmoney = 0 and minusmoney = 0
 	
-	
 	declare cursor_table cursor for 
-	select noa,count(*) from @tmp where gno = '2' group by noa
+	select custno,count(*) from @tmp where gno = '2' group by custno
 	open cursor_table 
 	fetch next from cursor_table 
-	into @noa,@cnt
+	into @custno,@cnt
 	while(@@FETCH_STATUS <> -1) 
 	begin	
-		if(@cnt = 1 and (select trandate from @tmp where gno = '2' and noa = @noa) is null)
+		if(@cnt = 1 and (select trandate from @tmp where gno = '2' and custno = @custno) is null)
 		begin
-			delete @tmp where (noa = @noa) and (gno = '1' or gno = '2') 
+			delete @tmp where (custno = @custno) and (gno = '1' or gno = '2') 
 		end
 	
 		fetch next from cursor_table 
-		into @noa,@cnt
+		into @custno,@cnt
 	end 
 	close cursor_table 
 	deallocate cursor_table
-	
-	select gno,rno,noa,mon,custname,custaddr,custtel,trandate,po,carno,product,straddr,endaddr,price,pton,mount,
-	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,total),1)),4,15)) total,
-	   memo,vno,
-	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,tmoney),1)),4,15)) tmoney,
-	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,tax),1)),4,15)) tax,
-	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,ttotal),1)),4,15)) ttotal,
-	   item,
-	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,plusmoney),1)),4,15)) plusmoney,
-	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,minusmoney),1)),4,15)) minusmoney,worker
-	from @tmp order by noa,rno,gno
-end
 
-else if(patindex('%sel1%',@t_option01) = 1)
-begin
 	update @tmp set gno = '8' where gno = '2'
 	
-	insert into @tmp(gno,rno,noa,mon,vno,mount,pton)
-	select '9',999999999,noa,mon,vno,SUM(mount),SUM(pton)
-	from @tmp where gno = '8' group by noa,mon,vno
+	insert into @tmp(gno,rno,custno,mount,pton,total)
+	select '9',999999999,custno,SUM(mount),SUM(pton),SUM(total)
+	from @tmp where gno = '8' group by custno	
 	
-	set @xnoa = 'zzzzzzzzzzzz'
+	set @xcustno = 'zzzzzz'
 	set @xmon = 'zzzzzz'
-	
+
 	declare cursor_table cursor for 
-	select rno,noa,mon,custname,custaddr,custtel from @tmp where gno = '8'
+	select rno,noa,mon,custno,custname,custaddr,custtel from @tmp where gno = '8'
 	open cursor_table 
 	fetch next from cursor_table 
-	into @rno,@noa,@mon,@custname,@custaddr,@custtel
+	into @rno,@noa,@mon,@custno,@custname,@custaddr,@custtel
 	while(@@FETCH_STATUS <> -1) 
 	begin
-		if(@xnoa != @noa)
+		if(@xcustno != @custno)
 		begin
 			set @cnt = 0	
+			update @tmp set vno = (select vno from @tmp where gno = '5' and custno = @custno) where gno = '9' and custno = @custno
 		end				
 						
 		if((@cnt = 0) or (@cnt % 39 = 0))
 		begin
-			insert into @tmp (gno,rno,noa,mon,custname,custaddr,custtel)
-			values('0',@rno,@noa,@mon,@custname,@custaddr,@custtel)
-			insert into @tmp (gno,rno,noa,mon)
-			values('7',@rno,@noa,@mon)
+			insert into @tmp (gno,rno,noa,mon,custno)
+			values('7',@rno,@noa,@mon,@custno)
 		end				
 		set @cnt = @cnt + 1	
 		
-		if(@xnoa != @noa)
+		if(@xcustno != @custno)
 		begin
-			if((select count(*) from @tmp where gno = '8' and noa = @noa) = 1 )
+			if((select count(*) from @tmp where gno = '8' and custno = @custno) = 1 )
 			begin
-				if((select trandate from @tmp where gno = '8' and noa = @noa) is null)
-					delete @tmp where noa = @noa 
+				if((select trandate from @tmp where gno = '8' and custno = @custno) is null)
+					delete @tmp where custno = @custno 
 			end	
 		end	
 		
-		set	@xnoa = @noa	
+		set	@xcustno = @custno	
 			
 		fetch next from cursor_table 
-		into @rno,@noa,@mon,@custname,@custaddr,@custtel
+		into @rno,@noa,@mon,@custno,@custname,@custaddr,@custtel
 	end 
 	close cursor_table 
 	deallocate cursor_table
-	
-	select gno,rno,noa,mon,custname,custaddr,custtel,trandate,po,carno,product,straddr,endaddr,price,pton,mount,
-	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,total),1)),4,15)) total,
-	   memo,vno,
-	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,tmoney),1)),4,15)) tmoney,
-	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,tax),1)),4,15)) tax,
-	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,ttotal),1)),4,15)) ttotal,
-	   item,
-	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,plusmoney),1)),4,15)) plusmoney,
-	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,minusmoney),1)),4,15)) minusmoney,worker
-	from @tmp order by noa,rno,gno
+
+if(patindex('%sel1%',@t_option01) = 0)
+begin	
+	update @tmp set gno = '2' where gno = '8'
+	select gno,rno,noa,mon,custno,custname,custaddr,custtel,trandate,po,carno,product,straddr,endaddr,trtype,price,pton,mount,
+	   dbo.getComma(total,0) total,memo,vno,dbo.getComma(tmoney,0) tmoney,dbo.getComma(tax,0) tax,dbo.getComma(ttotal,0) ttotal,
+	   item,dbo.getComma(plusmoney,0) plusmoney,dbo.getComma(minusmoney,0) minusmoney,worker
+	from @tmp where gno between '0' and '6' order by custno,rno,gno
+end
+else if(patindex('%sel1%',@t_option01) = 1)
+begin
+	select gno,rno,noa,mon,custno,custname,custaddr,custtel,trandate,po,carno,product,straddr,endaddr,trtype,price,pton,mount,
+	   dbo.getComma(total,0) total,memo,vno,dbo.getComma(tmoney,0) tmoney,dbo.getComma(tax,0) tax,dbo.getComma(ttotal,0) ttotal,
+	   item,dbo.getComma(plusmoney,0) plusmoney,dbo.getComma(minusmoney,0) minusmoney,worker
+	from @tmp where gno = '0' or gno = '7' or gno = '8' or gno = '9' order by custno,rno,gno
 end  ;
 
 
--*******************************************************************************
+--*******************************************************************************
 
 z_trd_va02:--z_trd_va02
 
@@ -423,9 +452,8 @@ set @t_vccano = case when '#non'=[7] then '' else [7] end
 set @t_po = case when '#non'=[10] then '' else [10] end
 
 ---------------------------------------------------------------------------------
-
 declare @tmp table(
-	gno nvarchar(10),
+	gno nvarchar(2),
 	rno int,
 	noa nvarchar(30),
 	mon nvarchar(10),
@@ -434,11 +462,12 @@ declare @tmp table(
 	custaddr nvarchar(100),
 	custtel nvarchar(100),
 	trandate nvarchar(10),
-	po nvarchar(20),
+	po nvarchar(max),
 	carno nvarchar(20),
 	product nvarchar(20),
 	straddr nvarchar(max),
 	endaddr nvarchar(max),	
+	trtype nvarchar(10),
 	mount decimal(18,3),
 	price decimal(18,3),
 	pton decimal(18,3),
@@ -456,20 +485,19 @@ declare @tmp table(
 )
 
 insert into @tmp 
-select '2',ROW_NUMBER() over (order by b.noa,d.trandate),b.noa,b.mon,a.noa,a.comp,a.addr_comp,
+select '2',ROW_NUMBER() over (order by b.custno,d.trandate),b.noa,b.mon,a.noa,a.comp,a.addr_comp,
 	   case when LEN(a.tel) = 0 then a.mobile else a.tel end,
-	   d.trandate,b.po,d.carno,d.product,d.straddr,d.endaddr,d.mount,d.price,d.pton,d.total,d.memo,b.vccano,'','','',b.custchgno,'',0,0,b.worker
+	   d.trandate,b.po,d.carno,d.product,d.straddr,d.endaddr,b.trtype,d.mount,d.price,d.pton,d.total,d.memo,b.vccano,'','','',b.custchgno,'',0,0,b.worker
 from cust a
 left join view_trd b on a.noa = b.custno
 left join view_trds c on b.noa = c.noa
 left join view_trans d on c.tranno = d.noa and c.trannoq = d.noq
 where (a.noa between @t_bcustno and @t_ecustno) and (b.datea between @t_bdate and @t_edate) and
-	  (LEN(@t_vccano) = 0 or b.vccano = @t_vccano) and (LEN(@t_po) = 0 or b.po = @t_po) 
-order by b.noa
+	  (LEN(@t_vccano) = 0 or b.vccano = @t_vccano) and (LEN(@t_po) = 0 or b.po = @t_po)
+order by b.custno 
 
-	insert into @tmp(gno,noa,vno,tmoney,tax,ttotal,worker)
-	select '6',noa,vccano,money,tax,total,worker
-	from view_trd where (custno between @t_bcustno and @t_ecustno) and (datea between @t_bdate and @t_edate) and (LEN(@t_vccano) = 0 or vccano = @t_vccano) and (LEN(@t_po) = 0 or po = @t_po) 
+	update @tmp set trtype = case when isnull(trtype,'') = '' then '0' else trtype end
+	update @tmp set total = total*(1-(CAST(trtype as float)/100))
 
 	declare @noa nvarchar(30)
 	declare @xnoa nvarchar(30)
@@ -489,7 +517,7 @@ order by b.noa
 
 	set @xnoa = 'zzzzzzzzzzzz'
 	set @xcustchgno = 'zzzzzzzzzzzz'
-
+	
 	declare cursor_table cursor for 
 	select noa,mon,custno,custchgno,worker from @tmp where gno = '2'
 	open cursor_table 
@@ -566,6 +594,14 @@ order by b.noa
 	close cursor_table 
 	deallocate cursor_table
 
+	insert into @tmp(gno,noa,custno,vno,trtype,tmoney,tax,ttotal,worker)
+	select '10',noa,custno,vccano,trtype,money,tax,total,worker
+	from view_trd where (custno between @t_bcustno and @t_ecustno) and (datea between @t_bdate and @t_edate) and (LEN(@t_vccano) = 0 or vccano = @t_vccano) and (LEN(@t_po) = 0 or po = @t_po)
+	update @tmp set trtype = case when isnull(trtype,'') = '' then '0' else trtype end where gno = '10'
+	update @tmp set tmoney = tmoney*(1-(CAST(trtype as float)/100)) where gno = '10'
+	update @tmp set tax = tax*(1-(CAST(trtype as float)/100)) where gno = '10'
+	update @tmp set ttotal = ttotal*(1-(CAST(trtype as float)/100)) where gno = '10'
+	
 	declare @xmon nvarchar(30)
 	declare @xcustno nvarchar(20)
 	declare @plusmoney float
@@ -585,11 +621,11 @@ order by b.noa
 	into @noa,@mon,@custno,@plusmoney,@minusmoney
 	while(@@FETCH_STATUS <> -1) 
 	begin
-		if (@xnoa != @noa)
+		if (@custno != @xcustno)
 		begin
-			insert into @tmp (gno,noa,mon,plusmoney,minusmoney,worker)
-			select '4',MAX(noa),MAX(mon),MAX(plusmoney),MAX(minusmoney),MAX(worker)
-			from @tmp where gno ='5' and noa = @noa
+			insert into @tmp (gno,noa,custno,mon,plusmoney,minusmoney,worker)
+			select '4',MAX(noa),MAX(custno),MAX(mon),MAX(plusmoney),MAX(minusmoney),MAX(worker)
+			from @tmp where gno ='5' and custno = @custno
 		end
 		
 		if(@xnoa !=@noa or @xmon != @mon or @xcustno != @custno)
@@ -615,8 +651,8 @@ order by b.noa
 		end
 		if(@cnt = 0)
 		begin
-			update @tmp set plusmoney = @totpmny where gno = '6' and noa = @noa 
-			update @tmp set minusmoney = @totmmny where gno = '6' and noa = @noa 
+			update @tmp set plusmoney = @totpmny*(1-(CAST(trtype as float)/100)) where gno = '10' and noa = @noa 
+			update @tmp set minusmoney = @totmmny*(1-(CAST(trtype as float)/100)) where gno = '10' and noa = @noa 
 		end	
 		
 		fetch next from cursor_table 
@@ -624,90 +660,513 @@ order by b.noa
 	end 
 	close cursor_table 
 	deallocate cursor_table
+	
+	insert into @tmp(gno,custno,tmoney,tax,ttotal,plusmoney,minusmoney,worker)
+	select '6',custno,SUM(tmoney),SUM(tax),SUM(ttotal),SUM(plusmoney),SUM(minusmoney),MAX(worker)
+	from @tmp where gno = '10' group by custno
+	
+	declare @vno nvarchar(max)
+	
+	set @xcustno = 'xxxxxx'
 
+	declare cursor_table cursor for 
+	select custno,vno from @tmp where gno = '10' and LEN(isnull(vno,'')) > 0 order by custno
+	open cursor_table 
+	fetch next from cursor_table 
+	into @custno,@vno
+	while(@@FETCH_STATUS <> -1) 
+	begin
+		if(@custno != @xcustno)
+		begin
+			set @str = ''			
+		end
+		
+		set @str = @str + @vno + ','
+		if (LEN(@str) % 44 = 0)
+			set @str = @str + '<br>'
+		update @tmp set vno = @str where gno = '6' and custno = @custno
+		
+		set @xcustno = @custno
+		
+		fetch next from cursor_table 
+		into @custno,@vno 
+	end 
+	close cursor_table 
+	deallocate cursor_table 
+	
+	delete @tmp where gno = '10'
+	update @tmp set vno = case when LEN(vno) > 0 then LEFT(vno,LEN(vno)-1) else '' end where gno = '6'
+	
 	insert into @tmp(gno,noa,mon,custno,tmoney,worker)
-	select '7',noa,mon,custno,(tmoney + tax + plusmoney - minusmoney),worker
+	select '7',noa,mon,custno,(ROUND(tmoney,0) + ROUND(tax,0) + ROUND(plusmoney,0) - ROUND(minusmoney,0)),worker
 	from @tmp where gno = '6'
 	
-	update @tmp set rno = 9999999 where gno = '4' or gno = '5' or gno = '6' or gno = '7'
+	update @tmp set rno = 9999999 where gno = '4' or gno = '5' or gno = '6' or gno = '7' or gno = '8'
 	
 	delete @tmp where gno = '4' and plusmoney = 0 and minusmoney = 0
 	delete @tmp where gno = '5' and plusmoney = 0 and minusmoney = 0
 	
 	declare @rno nvarchar(10)
-	set @xnoa = 'zzzzzzzzzzzz'
+	set @xcustno = 'zzzzzzzzzzzz'
 	set @xmon = 'zzzzzz'
 	
 	declare @counts int
 	declare @custname nvarchar(100)
 	declare @custaddr nvarchar(100)
 	declare @custtel nvarchar(100)
-	
+
 	declare cursor_table cursor for 
-	select rno,noa,mon,custname,custaddr,custtel,worker from @tmp where gno = '2'
+	select rno,noa,mon,custno,custname,custaddr,custtel,worker from @tmp where gno = '2' order by custno,rno
 	open cursor_table 
 	fetch next from cursor_table 
-	into @rno,@noa,@mon,@custname,@custaddr,@custtel,@worker
+	into @rno,@noa,@mon,@custno,@custname,@custaddr,@custtel,@worker
 	while(@@FETCH_STATUS <> -1) 
 	begin
-		if(@xnoa != @noa)
+		if(@xcustno != @custno)
 		begin
 			set @cnt = 0
-			set @counts = (select count(*) from @tmp where gno = '2' and noa = @noa) 
-			set	@xnoa = @noa			
+			set @counts = (select count(*) from @tmp where gno = '2' and custno = @custno)
+			print @counts
+			set	@xcustno = @custno			
 		end				
 						
 		if((@cnt = 0) or (@cnt % 10 = 0))
 		begin
-			insert into @tmp (gno,rno,noa,mon,custname,custaddr,custtel,worker)
-			values('0',@rno,@noa,@mon,@custname,@custaddr,@custtel,@worker)
-			insert into @tmp (gno,rno,noa,mon)
-			values('1',@rno,@noa,@mon)
-			if(@cnt >= 10)
+			insert into @tmp (gno,rno,noa,mon,custno,custname,custaddr,custtel,worker)
+			values('0',@rno,@noa,@mon,@custno,@custname,@custaddr,@custtel,@worker)
+			insert into @tmp (gno,rno,noa,mon,custno)
+			values('1',@rno,@noa,@mon,@custno)
+			if(@cnt > = 10)
 				set @counts = @counts - 10	
 		end	
 		
 		if(@cnt % 10 = 0 and @counts > 10)
 		begin
-			
-			insert into @tmp (gno,rno,noa,mon)
-			values('3',@rno+9,@noa,@mon)
+			insert into @tmp (gno,rno,noa,mon,custno)
+			values('3',@rno+9,@noa,@mon,@custno)
 		end				
 					
 		set @cnt = @cnt + 1
-		set	@xnoa = @noa	
+		set	@xcustno = @custno	
 			
 		fetch next from cursor_table 
-		into @rno,@noa,@mon,@custname,@custaddr,@custtel,@worker
+		into @rno,@noa,@mon,@custno,@custname,@custaddr,@custtel,@worker
 	end 
 	close cursor_table 
 	deallocate cursor_table
 	
 	declare cursor_table cursor for 
-	select noa,count(*) from @tmp where gno = '2' group by noa
+	select custno,count(*) from @tmp where gno = '2' group by custno
 	open cursor_table 
 	fetch next from cursor_table 
-	into @noa,@cnt
+	into @custno,@cnt
 	while(@@FETCH_STATUS <> -1) 
 	begin	
-		if(@cnt = 1 and (select trandate from @tmp where gno = '2' and noa = @noa) is null)
+		if(@cnt = 1 and (select trandate from @tmp where gno = '2' and custno = @custno) is null)
 		begin
-			delete @tmp where (noa = @noa) and (gno = '1' or gno = '2' or gno = '3') 
+			delete @tmp where (custno = @custno) and (gno = '1' or gno = '2' or gno = '3') 
 		end
 	
 		fetch next from cursor_table 
-		into @noa,@cnt
+		into @custno,@cnt
 	end 
 	close cursor_table 
 	deallocate cursor_table
 	
-	select gno,rno,noa,mon,custname,custaddr,custtel,trandate,po,carno,product,straddr,endaddr,price,pton,mount,
-	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,total),1)),4,15)) total,
-	   memo,vno,
-	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,tmoney),1)),4,15)) tmoney,
-	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,tax),1)),4,15)) tax,
-	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,ttotal),1)),4,15)) ttotal,
-	   item,
-	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,plusmoney),1)),4,15)) plusmoney,
-	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,minusmoney),1)),4,15)) minusmoney,worker
-	from @tmp order by noa,rno,gno  ;
+	select gno,rno,noa,mon,custno,custname,custaddr,custtel,trandate,po,carno,product,straddr,endaddr,trtype,price,pton,mount,
+	    dbo.getComma(total,0) total,memo,vno,dbo.getComma(tmoney,0) tmoney,dbo.getComma(tax,0) tax,dbo.getComma(ttotal,0) ttotal,
+	    item,dbo.getComma(plusmoney,0) plusmoney,dbo.getComma(minusmoney,0) minusmoney,worker
+	from @tmp order by custno,rno,gno  ;
+	
+	
+
+--******************************************************************************
+z_trd_va04:--z_trd_va04
+
+declare @t_bcustno nvarchar(20)
+declare @t_ecustno nvarchar(20)
+declare @t_bdate nvarchar(10)
+declare @t_edate nvarchar(10)
+declare @t_vccano nvarchar(10)
+declare @t_po nvarchar(20)
+declare @t_option01 nvarchar(20)
+
+set @t_bcustno = case when '#non'=[3] then '' else [3] end
+set @t_ecustno = case when '#non'=[4] then char(255) else [4] end
+set @t_bdate = case when '#non'=[5] then '' else [5] end
+set @t_edate = case when '#non'=[6] then char(255) else [6] end
+set @t_vccano = case when '#non'=[7] then '' else [7] end
+set @t_po = case when '#non'=[10] then '' else [10] end
+set @t_option01 = case when '#non'=[11] then '' else [11] end
+
+---------------------------------------------------------------------------------
+declare @tmp table(
+	gno nvarchar(2),
+	rno int,
+	noa nvarchar(30),
+	mon nvarchar(10),
+	custno nvarchar(30),
+	custname nvarchar(100),
+	custaddr nvarchar(100),
+	custtel nvarchar(100),
+	trandate nvarchar(10),
+	po nvarchar(max),
+	carno nvarchar(20),
+	product nvarchar(20),
+	straddr nvarchar(max),
+	endaddr nvarchar(max),	
+	trtype nvarchar(10),
+	mount decimal(18,3),
+	price decimal(18,3),
+	pton decimal(18,3),
+	total float,
+	memo nvarchar(200),
+	vno nvarchar(max),
+	tmoney float,
+	tax float,
+	ttotal float,
+	custchgno nvarchar(max),
+	item nvarchar(max),
+	plusmoney float,
+	minusmoney float,
+	worker nvarchar(30)
+)
+
+insert into @tmp 
+select '2',ROW_NUMBER() over (order by b.custno,d.trandate),b.noa,b.mon,a.noa,a.comp,a.addr_comp,
+	   case when LEN(a.tel) = 0 then a.mobile else a.tel end,
+	   d.trandate,b.po,d.carno,d.product,d.straddr,d.endaddr,b.trtype,d.mount,d.price,d.pton,d.total,d.memo,b.vccano,'','','',b.custchgno,'',0,0,b.worker
+from cust a
+left join view_trd b on a.noa = b.custno
+left join view_trds c on b.noa = c.noa
+left join view_trans d on c.tranno = d.noa and c.trannoq = d.noq
+where (a.noa between @t_bcustno and @t_ecustno) and (b.datea between @t_bdate and @t_edate) and
+	  (LEN(@t_vccano) = 0 or b.vccano = @t_vccano) and (LEN(@t_po) = 0 or b.po = @t_po)
+order by b.custno
+
+	update @tmp set trtype = case when isnull(trtype,'') = '' then '0' else trtype end
+	update @tmp set total = total*(CAST(trtype as float)/100)
+
+	declare @noa nvarchar(30)
+	declare @xnoa nvarchar(30)
+	declare @mon nvarchar(30)
+	declare @custno nvarchar(20)
+	declare @custchgno nvarchar(max)
+	declare @xcustchgno nvarchar(max)
+	declare @str nvarchar(max)
+	declare @sub nvarchar(max)
+	declare @date nvarchar(10)
+	declare @pitem nvarchar(10)
+	declare @mitem nvarchar(10)
+	declare @pmny float
+	declare @mmny float
+	declare @memo nvarchar(200) 
+	declare @worker nvarchar(100)
+
+	set @xnoa = 'zzzzzzzzzzzz'
+	set @xcustchgno = 'zzzzzzzzzzzz'
+	
+	declare cursor_table cursor for 
+	select noa,mon,custno,custchgno,worker from @tmp where gno = '2'
+	open cursor_table 
+	fetch next from cursor_table 
+	into @noa,@mon,@custno,@custchgno,@worker
+	while(@@FETCH_STATUS <> -1) 
+	begin	
+		if(@xnoa != @noa and LEN(@custchgno) = 0)
+		begin 
+			set @pmny = 0
+			set @mmny = 0
+			insert into @tmp(gno,noa,mon,custno,custchgno,plusmoney,minusmoney,worker)
+			values('4',@noa,@mon,@custno,@custchgno,@pmny,@mmny,@worker)
+			set @xnoa =@noa 
+			set @xcustchgno = @custchgno
+		end
+		if(@xcustchgno != @custchgno and LEN(@custchgno) = 12)
+		begin
+			set @str = @custchgno 
+			set @date = (select datea from custchg where noa = @str)
+			set @pitem = (select plusitem from custchg where noa = @str)
+			set @mitem = (select minusitem from custchg where noa = @str)
+			set @pmny = (select plusmoney from custchg where noa = @str)
+			set @mmny = (select minusmoney from custchg where noa = @str)
+			set @memo = (select memo from custchg where noa = @str)
+			insert into @tmp(gno,noa,mon,custno,trandate,custchgno,item,plusmoney,minusmoney,memo,worker)
+			values('4',@noa,@mon,@custno,@date,@custchgno,@pitem+@mitem,@pmny,@mmny,@memo,@worker)
+			set @xnoa =@noa 
+			set @xcustchgno = @custchgno
+		end
+		else if(@xcustchgno != @custchgno and LEN(@custchgno) > 12)
+		begin
+			set @str = @custchgno 
+			while (LEN(@str) > 0)
+			begin
+				set @sub = SUBSTRING(@str,1,12)						
+				
+				if(LEN(@str) > 12)
+				begin
+					set @date = (select datea from custchg where noa = @sub)
+					set @pitem = (select plusitem from custchg where noa = @sub)
+					set @mitem = (select minusitem from custchg where noa = @sub)
+					set @pmny = (select plusmoney from custchg where noa = @sub)
+					set @mmny = (select minusmoney from custchg where noa = @sub)
+					set @memo = (select memo from custchg where noa = @sub)
+					insert into @tmp(gno,noa,mon,custno,trandate,custchgno,item,plusmoney,minusmoney,memo,worker)
+					values('4',@noa,@mon,@custno,@date,@sub,@pitem+@mitem,@pmny,@mmny,@memo,@worker)
+					set @str = RIGHT(@str,LEN(@str)-13)	
+				end
+				else if(LEN(@str) = 12)
+				begin
+					set @date = (select datea from custchg where noa = @sub)
+					set @pitem = (select plusitem from custchg where noa = @sub)
+					set @mitem = (select minusitem from custchg where noa = @sub)
+					set @pmny = (select plusmoney from custchg where noa = @sub)
+					set @mmny = (select minusmoney from custchg where noa = @sub)
+					set @memo = (select memo from custchg where noa = @sub)
+					insert into @tmp(gno,noa,mon,custno,trandate,custchgno,item,plusmoney,minusmoney,memo,worker)
+					values('4',@noa,@mon,@custno,@date,@sub,@pitem+@mitem,@pmny,@mmny,@memo,@worker)			
+					set @str = ''
+				end
+				set @xnoa =@noa 
+				set @xcustchgno = @custchgno	
+			end
+		end
+		else if (@xcustchgno = @custchgno)
+		begin
+			 set @xnoa =@noa 
+			 set @xcustchgno = @custchgno
+		end
+		fetch next from cursor_table 
+		into @noa,@mon,@custno,@custchgno,@worker
+	end 
+	close cursor_table 
+	deallocate cursor_table
+
+	insert into @tmp(gno,noa,custno,vno,trtype,tmoney,tax,ttotal,worker)
+	select '10',noa,custno,vccano,trtype,money,tax,total,worker
+	from view_trd where (custno between @t_bcustno and @t_ecustno) and (datea between @t_bdate and @t_edate) and (LEN(@t_vccano) = 0 or vccano = @t_vccano) and (LEN(@t_po) = 0 or po = @t_po)
+	update @tmp set trtype = case when isnull(trtype,'') = '' then '0' else trtype end where gno = '10'
+	update @tmp set tmoney = tmoney*(CAST(trtype as float)/100) where gno = '10'
+	update @tmp set tax = tax*(CAST(trtype as float)/100) where gno = '10'
+	update @tmp set ttotal = ttotal*(CAST(trtype as float)/100) where gno = '10'
+
+	declare @xmon nvarchar(30)
+	declare @xcustno nvarchar(20)
+	declare @plusmoney float
+	declare @minusmoney float
+	declare @totpmny float
+	declare @totmmny float
+	declare @cnt int
+
+	set @xnoa = 'zzzzzzzzzzzz'
+	set @xmon = 'zzzzzz'
+	set @xcustno = 'xxxx'
+
+	declare cursor_table cursor for 
+	select noa,mon,custno,plusmoney,minusmoney from @tmp where gno = '4'
+	open cursor_table 
+	fetch next from cursor_table 
+	into @noa,@mon,@custno,@plusmoney,@minusmoney
+	while(@@FETCH_STATUS <> -1) 
+	begin
+		if (@custno != @xcustno)
+		begin
+			insert into @tmp (gno,noa,custno,mon,plusmoney,minusmoney,worker)
+			select '3',MAX(noa),MAX(custno),MAX(mon),MAX(plusmoney),MAX(minusmoney),MAX(worker)
+			from @tmp where gno ='4' and custno = @custno
+		end
+		
+		if(@xnoa !=@noa or @xmon != @mon or @xcustno != @custno)
+		begin
+			set @cnt = (select COUNT(*) from @tmp where gno = '4' and noa = @noa and mon = @mon and custno = @custno)
+			set @totpmny = 0
+			set @totmmny = 0 
+			set @totpmny = @totpmny + @plusmoney
+			set @totmmny = @totmmny + @minusmoney
+			set @cnt = @cnt - 1
+			set @xnoa = @noa
+			set @xmon = @mon
+			set @xcustno = @custno
+		end
+		else if (@xnoa =@noa and @xmon = @mon and @xcustno = @custno)
+		begin
+			set @totpmny = @totpmny + @plusmoney
+			set @totmmny = @totmmny + @minusmoney
+			set @cnt = @cnt - 1
+			set @xnoa = @noa
+			set @xmon = @mon
+			set @xcustno = @custno
+		end
+		if(@cnt = 0)
+		begin
+			update @tmp set plusmoney = @totpmny*(CAST(trtype as float)/100) where gno = '10' and noa = @noa 
+			update @tmp set minusmoney = @totmmny*(CAST(trtype as float)/100) where gno = '10' and noa = @noa 
+		end	
+		
+		fetch next from cursor_table 
+		into @noa,@mon,@custno,@plusmoney,@minusmoney
+	end 
+	close cursor_table 
+	deallocate cursor_table
+	
+	insert into @tmp(gno,custno,tmoney,tax,ttotal,plusmoney,minusmoney,worker)
+	select '5',custno,SUM(tmoney),SUM(tax),SUM(ttotal),SUM(plusmoney),SUM(minusmoney),MAX(worker)
+	from @tmp where gno = '10' group by custno
+	
+	declare @vno nvarchar(max)
+	
+	set @xcustno = 'xxxxxx'
+
+	declare cursor_table cursor for 
+	select custno,vno from @tmp where gno = '10' and LEN(isnull(vno,'')) > 0 order by custno
+	open cursor_table 
+	fetch next from cursor_table 
+	into @custno,@vno
+	while(@@FETCH_STATUS <> -1) 
+	begin
+		if(@custno != @xcustno)
+		begin
+			set @str = ''			
+		end
+		
+		set @str = @str + @vno + ','
+		if (LEN(@str) % 44 = 0)
+			set @str = @str + '<br>'
+		update @tmp set vno = @str where gno = '5' and custno = @custno
+		
+		set @xcustno = @custno
+		
+		fetch next from cursor_table 
+		into @custno,@vno 
+	end 
+	close cursor_table 
+	deallocate cursor_table 
+	
+	delete @tmp where gno = '10'
+	update @tmp set vno = case when LEN(vno) > 0 then LEFT(vno,LEN(vno)-1) else '' end where gno = '5'
+	
+	insert into @tmp(gno,noa,mon,custno,tmoney,worker)
+	select '6',noa,mon,custno,(ROUND(tmoney,0) + ROUND(tax,0) + ROUND(plusmoney,0) - ROUND(minusmoney,0)),worker
+	from @tmp where gno = '5'
+	
+	declare @rno nvarchar(10)
+	set @xcustno = 'zzzzzzzzzzzz'
+	set @xmon = 'zzzzzz'
+	
+	declare @custname nvarchar(100)
+	declare @custaddr nvarchar(100)
+	declare @custtel nvarchar(100)
+
+	declare cursor_table cursor for 
+	select rno,noa,mon,custno,custname,custaddr,custtel,worker from @tmp where gno = '2' order by custno,rno
+	open cursor_table 
+	fetch next from cursor_table 
+	into @rno,@noa,@mon,@custno,@custname,@custaddr,@custtel,@worker
+	while(@@FETCH_STATUS <> -1) 
+	begin
+		if(@xcustno != @custno)
+		begin
+			set @cnt = 0
+			set	@xcustno = @custno			
+		end				
+						
+		if((@cnt = 0) or (@cnt % 39 = 0))
+		begin
+			insert into @tmp (gno,rno,noa,mon,custno,custname,custaddr,custtel,worker)
+			values('0',@rno,@noa,@mon,@custno,@custname,@custaddr,@custtel,@worker)
+			insert into @tmp (gno,rno,noa,mon,custno)
+			values('1',@rno,@noa,@mon,@custno)
+		end				
+		set @cnt = @cnt + 1
+		set	@xcustno = @custno	
+			
+		fetch next from cursor_table 
+		into @rno,@noa,@mon,@custno,@custname,@custaddr,@custtel,@worker
+	end 
+	close cursor_table 
+	deallocate cursor_table
+
+	update @tmp set rno = 9999999 where gno = '3' or gno = '4' or gno = '5' or gno = '6'
+	
+	delete @tmp where gno = '3' and plusmoney = 0 and minusmoney = 0
+	delete @tmp where gno = '4' and plusmoney = 0 and minusmoney = 0
+	
+	declare cursor_table cursor for 
+	select custno,count(*) from @tmp where gno = '2' group by custno
+	open cursor_table 
+	fetch next from cursor_table 
+	into @custno,@cnt
+	while(@@FETCH_STATUS <> -1) 
+	begin	
+		if(@cnt = 1 and (select trandate from @tmp where gno = '2' and custno = @custno) is null)
+		begin
+			delete @tmp where (custno = @custno) and (gno = '1' or gno = '2') 
+		end
+	
+		fetch next from cursor_table 
+		into @custno,@cnt
+	end 
+	close cursor_table 
+	deallocate cursor_table
+
+	update @tmp set gno = '8' where gno = '2'
+	
+	insert into @tmp(gno,rno,custno,mount,pton,total)
+	select '9',999999999,custno,SUM(mount),SUM(pton),SUM(total)
+	from @tmp where gno = '8' group by custno	
+	
+	set @xcustno = 'zzzzzz'
+	set @xmon = 'zzzzzz'
+
+	declare cursor_table cursor for 
+	select rno,noa,mon,custno,custname,custaddr,custtel from @tmp where gno = '8'
+	open cursor_table 
+	fetch next from cursor_table 
+	into @rno,@noa,@mon,@custno,@custname,@custaddr,@custtel
+	while(@@FETCH_STATUS <> -1) 
+	begin
+		if(@xcustno != @custno)
+		begin
+			set @cnt = 0	
+			update @tmp set vno = (select vno from @tmp where gno = '5' and custno = @custno) where gno = '9' and custno = @custno
+		end				
+						
+		if((@cnt = 0) or (@cnt % 39 = 0))
+		begin
+			insert into @tmp (gno,rno,noa,mon,custno)
+			values('7',@rno,@noa,@mon,@custno)
+		end				
+		set @cnt = @cnt + 1	
+		
+		if(@xcustno != @custno)
+		begin
+			if((select count(*) from @tmp where gno = '8' and custno = @custno) = 1 )
+			begin
+				if((select trandate from @tmp where gno = '8' and custno = @custno) is null)
+					delete @tmp where custno = @custno 
+			end	
+		end	
+		
+		set	@xcustno = @custno	
+			
+		fetch next from cursor_table 
+		into @rno,@noa,@mon,@custno,@custname,@custaddr,@custtel
+	end 
+	close cursor_table 
+	deallocate cursor_table
+
+if(patindex('%sel1%',@t_option01) = 0)
+begin	
+	update @tmp set gno = '2' where gno = '8'
+	select gno,rno,noa,mon,custno,custname,custaddr,custtel,trandate,po,carno,product,straddr,endaddr,trtype,price,pton,mount,
+	   dbo.getComma(total,0) total,memo,vno,dbo.getComma(tmoney,0) tmoney,dbo.getComma(tax,0) tax,dbo.getComma(ttotal,0) ttotal,
+	   item,dbo.getComma(plusmoney,0) plusmoney,dbo.getComma(minusmoney,0) minusmoney,worker
+	from @tmp where gno between '0' and '6' order by custno,rno,gno
+end
+else if(patindex('%sel1%',@t_option01) = 1)
+begin
+	select gno,rno,noa,mon,custno,custname,custaddr,custtel,trandate,po,carno,product,straddr,endaddr,trtype,price,pton,mount,
+	   dbo.getComma(total,0) total,memo,vno,dbo.getComma(tmoney,0) tmoney,dbo.getComma(tax,0) tax,dbo.getComma(ttotal,0) ttotal,
+	   item,dbo.getComma(plusmoney,0) plusmoney,dbo.getComma(minusmoney,0) minusmoney,worker
+	from @tmp where gno = '0' or gno = '7' or gno = '8' or gno = '9' order by custno,rno,gno
+end  ;
