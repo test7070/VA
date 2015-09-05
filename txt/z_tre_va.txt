@@ -548,7 +548,7 @@ declare @tmp table(
 insert into @tmp
 select '9',d.cartype,a.driverno,a.driver,
 	   case when LEN(d.mobile) = 0 then d.tel else d.mobile end,
-	   b.trandate,c.po,a.carno,b.product,b.straddr,b.endaddr,b.mount,b.price,b.money,a.carchgno,'',0,0,a.memo
+	   c.trandate,c.po,a.carno,b.product,b.straddr,b.endaddr,b.mount,b.price,b.money,a.carchgno,'',0,0,a.memo
 from view_tre a
 left join view_tres b on a.noa = b.noa  
 left join view_trans c on b.tranno = c.noa and b.trannoq = c.noq
