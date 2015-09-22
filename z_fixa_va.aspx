@@ -45,7 +45,7 @@
                         name : 'carno'
                     }, {/*1-4 [8]*/
                         type : '6',
-                        name : 'carplateno'
+                        name : 'cardno'
                     },{/*2-1 [9][10]*/
                         type : '1',
                         name : 'indate'
@@ -71,7 +71,7 @@
                         dbf : 'fixucc',
                         index : 'noa,namea',
                         src : 'fixucc_b.aspx'
-                    },]
+                    }]
                 });
                 q_popAssign();
 				q_getFormat();

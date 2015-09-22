@@ -158,6 +158,116 @@ select gno,mon,fixadate,carxno,productno,product,miles,tgg,dbo.getComma(price,0)
 
 
 
+--******************************************************************************
+z_fixa_va03:--z_fixa_va03	
+SET QUOTED_IDENTIFIER OFF
+declare @cmd nvarchar(max)
+declare @t_accy nvarchar(20) = case when '#non'=[17] then '' else [17] end
+declare @t_cardno nvarchar(max) = case when '#non'=[7] then '' else [7] end
+--------------------------------------------------------------------------------
+SET QUOTED_IDENTIFIER OFF
+
+declare @tmp table(
+	mon nvarchar(10),
+	cardno nvarchar(20),
+	fixa float,
+	tire float
+)
+
+insert into @tmp
+select mon,cardno,SUM(isnull(wmoney,0)),SUM(isnull(cmoney,0)+isnull(dmoney,0)+isnull(emoney,0))
+from fixa
+where (LEFT(mon,3) = @t_accy) and (LEN(cardno) > 0) and (LEN(@t_cardno) = 0 or cardno = @t_cardno)
+and not(ISNULL(wmoney,0)=0 and ISNULL(cmoney,0)=0 and ISNULL(dmoney,0)=0 and ISNULL(emoney,0)=0)
+group by cardno,mon
+
+IF OBJECT_ID('tempdb..#z_fixa_va03')is not null
+BEGIN
+	drop table #z_fixa_va03
+END
+create table #z_fixa_va03(
+	gno nvarchar(20),
+	yy nvarchar(20),
+	cardno nvarchar(20),
+	f01 float,
+	f02 float,
+	f03 float,
+	f04 float,
+	f05 float,
+	f06 float,
+	f07 float,
+	f08 float,
+	f09 float,
+	f10 float,
+	f11 float,
+	f12 float,
+	fsum float,
+	t01 float,
+	t02 float,
+	t03 float,
+	t04 float,
+	t05 float,
+	t06 float,
+	t07 float,
+	t08 float,
+	t09 float,
+	t10 float,
+	t11 float,
+	t12 float,
+	tsum float
+)
+
+declare @mon nvarchar(max)
+declare @cardno nvarchar(max)
+declare @fixa nvarchar(max)
+declare @tire nvarchar(max)
+	
+declare cursor_table cursor for
+select mon,cardno,fixa,tire from @tmp
+open cursor_table
+fetch next from cursor_table
+into @mon,@cardno,@fixa,@tire
+while(@@FETCH_STATUS <> -1)
+begin
+	if not exists(select * from #z_fixa_va03 where cardno=@cardno)
+	begin
+		insert into #z_fixa_va03(gno,cardno,yy)values('1',@cardno,@t_accy)
+	end
+		
+	set @cmd = "update #z_fixa_va03 set f" + RIGHT(@mon,2)+"=" +@fixa+ ",t" + RIGHT(@mon,2)+"=" +@tire+" where cardno ='"+@cardno+"'"
+	execute sp_executesql @cmd
+		
+	fetch next from cursor_table
+	into @mon,@cardno,@fixa,@tire
+end
+close cursor_table
+deallocate cursor_table
+
+update #z_fixa_va03 set fsum = isnull(f01,0)+isnull(f02,0)+isnull(f03,0)+isnull(f04,0)+isnull(f05,0)+isnull(f06,0)+
+							   isnull(f07,0)+isnull(f08,0)+isnull(f09,0)+isnull(f10,0)+isnull(f11,0)+isnull(f12,0),
+						tsum = isnull(t01,0)+isnull(t02,0)+isnull(t03,0)+isnull(t04,0)+isnull(t05,0)+isnull(t06,0)+
+							   isnull(t07,0)+isnull(t08,0)+isnull(t09,0)+isnull(t10,0)+isnull(t11,0)+isnull(t12,0)  
+
+insert into #z_fixa_va03(gno,cardno,f01,f02,f03,f04,f05,f06,f07,f08,f09,f10,f11,f12,t01,t02,t03,t04,t05,t06,t07,t08,t09,t10,t11,t12,fsum,tsum)
+select '2','',SUM(isnull(f01,0)),SUM(isnull(f02,0)),SUM(isnull(f03,0)),SUM(isnull(f04,0)),SUM(isnull(f05,0)),SUM(isnull(f06,0)),
+			  SUM(isnull(f07,0)),SUM(isnull(f08,0)),SUM(isnull(f09,0)),SUM(isnull(f10,0)),SUM(isnull(f11,0)),SUM(isnull(f12,0)),
+			  SUM(isnull(t01,0)),SUM(isnull(t02,0)),SUM(isnull(t03,0)),SUM(isnull(t04,0)),SUM(isnull(t05,0)),SUM(isnull(t06,0)),
+			  SUM(isnull(t07,0)),SUM(isnull(t08,0)),SUM(isnull(t09,0)),SUM(isnull(t10,0)),SUM(isnull(t11,0)),SUM(isnull(t12,0)),
+			  SUM(isnull(fsum,0)),SUM(isnull(tsum,0))
+from #z_fixa_va03
+
+select 
+	gno,yy,cardno,
+	dbo.getComma(f01,0)f01,dbo.getComma(f02,0)f02,dbo.getComma(f03,0)f03,dbo.getComma(f04,0)f04,dbo.getComma(f05,0)f05,dbo.getComma(f06,0)f06,
+	dbo.getComma(f07,0)f07,dbo.getComma(f08,0)f08,dbo.getComma(f09,0)f09,dbo.getComma(f10,0)f10,dbo.getComma(f11,0)f11,dbo.getComma(f12,0)f12,
+	dbo.getComma(t01,0)t01,dbo.getComma(t02,0)t02,dbo.getComma(t03,0)t03,dbo.getComma(t04,0)t04,dbo.getComma(t05,0)t05,dbo.getComma(t06,0)t06,
+	dbo.getComma(t07,0)t07,dbo.getComma(t08,0)t08,dbo.getComma(t09,0)t09,dbo.getComma(t10,0)t10,dbo.getComma(t11,0)t11,dbo.getComma(t12,0)t12,
+	dbo.getComma(fsum,0)fsum,dbo.getComma(tsum,0)tsum
+from #z_fixa_va03
+
+drop table #z_fixa_va03;
+
+
 
 --******************************************************************************
 z_fixa_va04:--z_fixa_va04
@@ -166,7 +276,7 @@ declare @t_bmon nvarchar(10)
 declare @t_emon nvarchar(10)
 declare @t_bfixadate nvarchar(10)
 declare @t_efixadate nvarchar(10)
-declare @t_carplateno nvarchar(20)
+declare @t_cardno nvarchar(20)
 declare @t_bfixucc nvarchar(30)
 declare @t_efixucc nvarchar(30)
 
@@ -175,7 +285,7 @@ set @t_bmon = case when '#non'=[3] then '' else [3] end
 set @t_emon = case when '#non'=[4] then char(255) else [4] end
 set @t_bfixadate = case when '#non'=[5] then '' else [5] end
 set @t_efixadate = case when '#non'=[6] then char(255) else [6] end
-set @t_carplateno = case when '#non'=[8] then '' else [8] end
+set @t_cardno = case when '#non'=[8] then '' else [8] end
 set @t_bfixucc = case when '#non'=[18] then '' else [18] end
 set @t_efixucc = case when '#non'=[19] then char(255) else [19] end
 
@@ -192,10 +302,10 @@ declare @tmp table(
 	memo nvarchar(200)
 )
 insert into @tmp
-select '0',a.mon,a.fixadate,a.carplateno,b.product,a.miles,a.tgg,b.price,b.memo
+select '0',a.mon,a.fixadate,a.cardno,b.product,a.miles,a.tgg,b.price,b.memo
 from fixa a 
 left join fixas b on a.noa = b.noa
-where (len(@t_carplateno) = 0 or a.carplateno = @t_carplateno) and (a.mon between @t_bmon and @t_emon)and  (a.fixadate between @t_bfixadate and @t_efixadate) and
+where len(a.cardno)>0 and (len(@t_cardno) = 0 or a.cardno = @t_cardno) and (a.mon between @t_bmon and @t_emon)and  (a.fixadate between @t_bfixadate and @t_efixadate) and
 	  (b.productno between @t_bfixucc and @t_efixucc)
 update @tmp set mon = SUBSTRING(mon,1,3)+'.'+SUBSTRING(mon,5,6)
 
@@ -209,6 +319,7 @@ update @tmp set fixadate='zzzzzzzzz' where gno = '1' or gno = '2'
 update @tmp set mon='zzzzzzzzz' where gno = '2'
 
 select gno,mon,fixadate,plate,product,miles,tgg,dbo.getComma(price,0) price,memo from @tmp order by plate,mon,gno;
+
 
 
 
