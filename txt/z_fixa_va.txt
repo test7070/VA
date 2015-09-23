@@ -163,7 +163,7 @@ z_fixa_va03:--z_fixa_va03
 SET QUOTED_IDENTIFIER OFF
 declare @cmd nvarchar(max)
 declare @t_accy nvarchar(20) = case when '#non'=[17] then '' else [17] end
-declare @t_cardno nvarchar(max) = case when '#non'=[7] then '' else [7] end
+declare @t_cardno nvarchar(max) = case when '#non'=[8] then '' else [8] end
 --------------------------------------------------------------------------------
 SET QUOTED_IDENTIFIER OFF
 
@@ -257,7 +257,7 @@ select '2','',SUM(isnull(f01,0)),SUM(isnull(f02,0)),SUM(isnull(f03,0)),SUM(isnul
 from #z_fixa_va03
 
 select 
-	gno,yy,cardno,
+	gno,yy,cardno cdno,
 	dbo.getComma(f01,0)f01,dbo.getComma(f02,0)f02,dbo.getComma(f03,0)f03,dbo.getComma(f04,0)f04,dbo.getComma(f05,0)f05,dbo.getComma(f06,0)f06,
 	dbo.getComma(f07,0)f07,dbo.getComma(f08,0)f08,dbo.getComma(f09,0)f09,dbo.getComma(f10,0)f10,dbo.getComma(f11,0)f11,dbo.getComma(f12,0)f12,
 	dbo.getComma(t01,0)t01,dbo.getComma(t02,0)t02,dbo.getComma(t03,0)t03,dbo.getComma(t04,0)t04,dbo.getComma(t05,0)t05,dbo.getComma(t06,0)t06,
@@ -305,7 +305,7 @@ insert into @tmp
 select '0',a.mon,a.fixadate,a.cardno,b.product,a.miles,a.tgg,b.price,b.memo
 from fixa a 
 left join fixas b on a.noa = b.noa
-where len(a.cardno)>0 and (len(@t_cardno) = 0 or a.cardno = @t_cardno) and (a.mon between @t_bmon and @t_emon)and  (a.fixadate between @t_bfixadate and @t_efixadate) and
+where len(a.cardno)>0 and (len(@t_cardno) = 0 or a.cardno = @t_cardno) and (a.mon between @t_bmon and @t_emon) and  (a.fixadate between @t_bfixadate and @t_efixadate) and
 	  (b.productno between @t_bfixucc and @t_efixucc)
 update @tmp set mon = SUBSTRING(mon,1,3)+'.'+SUBSTRING(mon,5,6)
 
@@ -468,15 +468,14 @@ declare @t_edate nvarchar(50)
 set @t_bdate = case when '#non'=[15] then '' else [15] end
 set @t_edate = case when '#non'=[16] then char(255) else [16] end
 ---------------------------------------------------------------------------------
-
 declare @tmp table(
 	gno nvarchar(1),
 	datea nvarchar(10),
---	廠牌
+	brand nvarchar(20),
 --	輪胎規格
 	etireno1 nvarchar(20),
 	etireno2 nvarchar(20),
---	花紋
+	flower nvarchar(10),
 	miles float,
 	price float,
 	carnum nvarchar(20),
@@ -497,27 +496,29 @@ declare @tmp table(
 )
 
 insert into @tmp
-select '0',a.datea,
-	   case when c.tiretype = '01' then b.etireno else '' end,
-	   case when c.tiretype = '02' then b.etireno else '' end,
+select '0',a.datea,c.brand,
+	   case when c.tiretype = '01' then b.etireno else '' end, 
+	   case when c.tiretype = '02' then b.etireno else '' end, 
+	   case when CHARINDEX('直',c.product) > 0 then '直' 
+			when CHARINDEX('粗',c.product) > 0 then '粗'end	,
 	   a.miles,b.price,a.carno,
-	   case when CAST(b.position as int) = 1 then 'v' else '' end,	
-	   case when CAST(b.position as int) = 2 then 'v' else '' end,	
-	   case when CAST(b.position as int) = 3 then 'v' else '' end,	
-	   case when CAST(b.position as int) = 4 then 'v' else '' end,
-	   case when CAST(b.position as int) = 5 then 'v' else '' end,	
-	   case when CAST(b.position as int) = 6 then 'v' else '' end,
-	   case when CAST(b.position as int) = 7 then 'v' else '' end,	
-	   case when CAST(b.position as int) = 8 then 'v' else '' end,
-	   case when CAST(b.position as int) = 9 then 'v' else '' end,	
-	   case when CAST(b.position as int) = 10 then 'v' else '' end,
+	   case when CAST(b.position as int) = 1 then '' else '' end,	
+	   case when CAST(b.position as int) = 2 then '' else '' end,	
+	   case when CAST(b.position as int) = 3 then '' else '' end,	
+	   case when CAST(b.position as int) = 4 then '' else '' end,
+	   case when CAST(b.position as int) = 5 then '' else '' end,	
+	   case when CAST(b.position as int) = 6 then '' else '' end,
+	   case when CAST(b.position as int) = 7 then '' else '' end,	
+	   case when CAST(b.position as int) = 8 then '' else '' end,
+	   case when CAST(b.position as int) = 9 then '' else '' end,	
+	   case when CAST(b.position as int) = 10 then '' else '' end,
 	   b.btireno,b.memo
 from tire a
 left join tires b on a.noa = b.noa
-left join fixins c on b.etireno = c.tireno
-where(LEN(a.carno) > 0) and (a.datea between @t_bdate and @t_edate)  and (b.action = '01')
+left join fixins c on b.etireno = c.tireno and LEN(ISNULL(b.etireno,'')) > 0
+where(LEN(a.carno) > 0) and (a.datea between @t_bdate and @t_edate) and (b.action = '補胎' or b.action = '換胎')
 
-select gno,datea,etireno1,etireno2,miles,dbo.getComma(price,0)price,carnum,
+select gno,datea,brand,etireno1,etireno2,flower,miles,dbo.getComma(price,0)price,carnum,
 	   posit1,posit2,posit3,posit4,posit5,posit6,posit7,posit8,posit9,posit10,btireno,memo
 from @tmp  ;
 
@@ -526,25 +527,23 @@ from @tmp  ;
 --******************************************************************************
 z_fixa_va07:--z_fixa_va07
 
-
 declare @t_bdate nvarchar(50)
 declare @t_edate nvarchar(50)
 
 set @t_bdate = case when '#non'=[15] then '' else [15] end
 set @t_edate = case when '#non'=[16] then char(255) else [16] end
 ---------------------------------------------------------------------------------
-
 declare @tmp table(
 	gno nvarchar(1),
 	datea nvarchar(10),
---	廠牌
+	brand nvarchar(20),
 --	輪胎規格
 	etireno1 nvarchar(20),
 	etireno2 nvarchar(20),
---	花紋
+	flower nvarchar(10),
+	miles float,
 	price float,
---	板台編號 cpno	
-	cpnum nvarchar(20),
+	carnum nvarchar(20),
 	posit1 nvarchar(10),
 	posit2 nvarchar(10),
 	posit3 nvarchar(10),
@@ -554,9 +553,7 @@ declare @tmp table(
 	posit7 nvarchar(10),
 	posit8 nvarchar(10),
 	posit9 nvarchar(10),
-	posit10 nvarchar(10), 	
-	posit11 nvarchar(10),
-	posit12 nvarchar(10),			
+	posit10 nvarchar(10), 				
 --	責任歸屬	
 	btireno nvarchar(20),
 --	卸胎處理方式	
@@ -564,30 +561,30 @@ declare @tmp table(
 )
 
 insert into @tmp
-select '0',a.datea,
-	   case when c.tiretype = '01' then b.etireno else '' end,
-	   case when c.tiretype = '02' then b.etireno else '' end,
-	   b.price,a.carplateno,
-	   case when CAST(b.position as int) = 1 then 'v' else '' end,	
-	   case when CAST(b.position as int) = 2 then 'v' else '' end,	
-	   case when CAST(b.position as int) = 3 then 'v' else '' end,	
-	   case when CAST(b.position as int) = 4 then 'v' else '' end,
-	   case when CAST(b.position as int) = 5 then 'v' else '' end,	
-	   case when CAST(b.position as int) = 6 then 'v' else '' end,
-	   case when CAST(b.position as int) = 7 then 'v' else '' end,	
-	   case when CAST(b.position as int) = 8 then 'v' else '' end,
-	   case when CAST(b.position as int) = 9 then 'v' else '' end,	
-	   case when CAST(b.position as int) = 10 then 'v' else '' end,
-	   case when CAST(b.position as int) = 11 then 'v' else '' end,
-	   case when CAST(b.position as int) = 12 then 'v' else '' end,
+select '0',a.datea,c.brand,
+	   case when c.tiretype = '01' then b.etireno else '' end, 
+	   case when c.tiretype = '02' then b.etireno else '' end, 
+	   case when CHARINDEX('直',c.product) > 0 then '直' 
+			when CHARINDEX('粗',c.product) > 0 then '粗'end	,
+	   a.miles,b.price,a.carno,
+	   case when CAST(b.position as int) = 1 then '' else '' end,	
+	   case when CAST(b.position as int) = 2 then '' else '' end,	
+	   case when CAST(b.position as int) = 3 then '' else '' end,	
+	   case when CAST(b.position as int) = 4 then '' else '' end,
+	   case when CAST(b.position as int) = 5 then '' else '' end,	
+	   case when CAST(b.position as int) = 6 then '' else '' end,
+	   case when CAST(b.position as int) = 7 then '' else '' end,	
+	   case when CAST(b.position as int) = 8 then '' else '' end,
+	   case when CAST(b.position as int) = 9 then '' else '' end,	
+	   case when CAST(b.position as int) = 10 then '' else '' end,
 	   b.btireno,b.memo
 from tire a
 left join tires b on a.noa = b.noa
-left join fixins c on b.etireno = c.tireno
-where(LEN(a.carplateno) > 0) and (a.datea between @t_bdate and @t_edate) and (b.action = '01')
+left join fixins c on b.etireno = c.tireno and LEN(ISNULL(b.etireno,'')) > 0
+where(LEN(a.cardno) > 0) and (a.datea between @t_bdate and @t_edate) and (b.action = '補胎' or b.action = '換胎')
 
-select gno,datea,etireno1,etireno2,dbo.getComma(price,0)price,cpnum,
-	   posit1,posit2,posit3,posit4,posit5,posit6,posit7,posit8,posit9,posit10,posit11,posit12,btireno,memo
+select gno,datea,brand,etireno1,etireno2,flower,miles,dbo.getComma(price,0)price,carnum,
+	   posit1,posit2,posit3,posit4,posit5,posit6,posit7,posit8,posit9,posit10,btireno,memo
 from @tmp  ;
 
 
@@ -602,17 +599,17 @@ declare @t_edate nvarchar(50)
 set @t_bdate = case when '#non'=[15] then '' else [15] end
 set @t_edate = case when '#non'=[16] then char(255) else [16] end
 ---------------------------------------------------------------------------------
-
 declare @tmp table(
 	gno nvarchar(1),
 	datea nvarchar(10),
---	廠牌
+	brand nvarchar(20),
 --	輪胎規格
 	etireno1 nvarchar(20),
 	etireno2 nvarchar(20),
---	花紋
+	flower nvarchar(10),
+	miles float,
+	price float,
 	carnum nvarchar(20),
---	板台編號 cpno	
 	posit1 nvarchar(10),
 	posit2 nvarchar(10),
 	posit3 nvarchar(10),
@@ -622,38 +619,36 @@ declare @tmp table(
 	posit7 nvarchar(10),
 	posit8 nvarchar(10),
 	posit9 nvarchar(10),
-	posit10 nvarchar(10), 	
-	posit11 nvarchar(10),
-	posit12 nvarchar(10),			
+	posit10 nvarchar(10), 				
 --	責任歸屬	
-	price float,
---	補胎地點
+	btireno nvarchar(20),
+--	卸胎處理方式	
 	memo nvarchar(max)
 )
 
 insert into @tmp
-select '0',a.datea,
-	   case when c.tiretype = '01' then b.etireno else '' end,
-	   case when c.tiretype = '02' then b.etireno else '' end,
-	   a.carno,
-	   case when CAST(b.position as int) = 1 then 'v' else '' end,	
-	   case when CAST(b.position as int) = 2 then 'v' else '' end,	
-	   case when CAST(b.position as int) = 3 then 'v' else '' end,	
-	   case when CAST(b.position as int) = 4 then 'v' else '' end,
-	   case when CAST(b.position as int) = 5 then 'v' else '' end,	
-	   case when CAST(b.position as int) = 6 then 'v' else '' end,
-	   case when CAST(b.position as int) = 7 then 'v' else '' end,	
-	   case when CAST(b.position as int) = 8 then 'v' else '' end,
-	   case when CAST(b.position as int) = 9 then 'v' else '' end,	
-	   case when CAST(b.position as int) = 10 then 'v' else '' end,
-	   case when CAST(b.position as int) = 11 then 'v' else '' end,
-	   case when CAST(b.position as int) = 12 then 'v' else '' end,
-	   b.price,b.memo
+select '0',a.datea,c.brand,
+	   case when c.tiretype = '01' then b.etireno else '' end, 
+	   case when c.tiretype = '02' then b.etireno else '' end, 
+	   case when CHARINDEX('直',c.product) > 0 then '直' 
+			when CHARINDEX('粗',c.product) > 0 then '粗'end	,
+	   a.miles,b.price,a.carno,
+	   case when CAST(b.position as int) = 1 then '' else '' end,	
+	   case when CAST(b.position as int) = 2 then '' else '' end,	
+	   case when CAST(b.position as int) = 3 then '' else '' end,	
+	   case when CAST(b.position as int) = 4 then '' else '' end,
+	   case when CAST(b.position as int) = 5 then '' else '' end,	
+	   case when CAST(b.position as int) = 6 then '' else '' end,
+	   case when CAST(b.position as int) = 7 then '' else '' end,	
+	   case when CAST(b.position as int) = 8 then '' else '' end,
+	   case when CAST(b.position as int) = 9 then '' else '' end,	
+	   case when CAST(b.position as int) = 10 then '' else '' end,
+	   b.btireno,b.memo
 from tire a
 left join tires b on a.noa = b.noa
-left join fixins c on b.etireno = c.tireno
-where(a.datea between @t_bdate and @t_edate) and (b.action = '02')
+left join fixins c on b.etireno = c.tireno and LEN(ISNULL(b.etireno,'')) > 0
+where(LEN(a.carno) > 0) and (a.datea between @t_bdate and @t_edate) and (b.action = '補胎')
 
-select gno,datea,etireno1,etireno2,carnum,
-	   posit1,posit2,posit3,posit4,posit5,posit6,posit7,posit8,posit9,posit10,posit11,posit12,dbo.getComma(price,0)price,memo
+select gno,datea,brand,etireno1,etireno2,flower,miles,dbo.getComma(price,0)price,carnum,
+	   posit1,posit2,posit3,posit4,posit5,posit6,posit7,posit8,posit9,posit10,btireno,memo
 from @tmp  ;
