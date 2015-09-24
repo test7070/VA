@@ -379,15 +379,18 @@ left join fixout d on c.noa=d.noa
 where (b.typea = '輪胎') and (a.indate between @t_bindate and @t_eindate) and
 	  (LEN(@t_boutdate)>0 or LEN(@t_eoutdate)>0 or c.outdate between @t_boutdate and @t_eoutdate)
 
+insert into @tmp(gno,tmoney)
+select '1',SUM(price)
+from @tmp where gno = '0' and LEN(ISNULL(indate,''))>0
+update @tmp set tmount1 = (select COUNT(tireno1) from @tmp where gno = '0' and LEN(ISNULL(indate,''))>0 and LEN(tireno1)>0) where gno = '1'
+update @tmp set tmount2 = (select COUNT(tireno2) from @tmp where gno = '0' and LEN(ISNULL(indate,''))>0 and LEN(tireno2)>0) where gno = '1'
 
-insert into @tmp(gno,tmoney,tmount1,tmount2)
-select '1',SUM(price),COUNT(tireno1),COUNT(tireno2) 
-from @tmp where gno = '0' and LEN(ISNULL(indate,'')) > 0
-
-insert into @tmp(gno,tmoney,tmount1,tmount2)
-select '2',SUM(isnull(price,0)),COUNT(tireno1),COUNT(tireno2) 
-from @tmp where gno = '0' and LEN(ISNULL(outdate,'')) > 0
+insert into @tmp(gno,tmoney)
+select '2',SUM(isnull(price,0))
+from @tmp where gno = '0' and LEN(ISNULL(outdate,''))>0
 update @tmp set tmoney = case when tmoney is null then 0 else tmoney end
+update @tmp set tmount1 = (select COUNT(tireno1) from @tmp where gno = '0' and LEN(ISNULL(outdate,''))>0 and LEN(tireno1)>0) where gno = '2'
+update @tmp set tmount2 = (select COUNT(tireno2) from @tmp where gno = '0' and LEN(ISNULL(outdate,''))>0 and LEN(tireno2)>0) where gno = '2'
 
 insert into @tmp(gno,tmoney,tmount1,tmount2)
 select '3',(select tmoney  from @tmp where gno = '1')-(select tmoney  from @tmp where gno = '2'),
