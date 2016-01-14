@@ -240,10 +240,11 @@ declare @tmp table(
 )
 
 insert into @tmp
-select '0','',a.driverno,a.driver,SUM(a.money),SUM(a.total),0
+select '0','',a.driverno,d.namea,SUM(a.money),SUM(a.total),0
 from view_tre a
+left join driver d on a.driverno=d.noa
 where (a.datea between @t_bdate and @t_edate) and (LEN(a.driverno) > 0) and (a.driverno between @t_bdriverno and @t_edriverno)
-group by a.driverno,a.driver
+group by a.driverno,d.namea
 
 declare @tmp1 table(
 	driverno nvarchar(20),
@@ -252,12 +253,13 @@ declare @tmp1 table(
 )
 
 insert into @tmp1
-select a.driverno,a.driver,SUM(c.total)
+select a.driverno,d.namea,SUM(c.total)
 from view_tre a
 left join view_tres b on a.noa = b.noa
 left join view_trans c on b.tranno = c.noa and b.trannoq = c.noq 
+left join driver d on a.driverno=d.noa
 where (a.datea between @t_bdate and @t_edate) and (LEN(a.driverno) > 0) and (a.driverno between @t_bdriverno and @t_edriverno)
-group by a.driverno,a.driver
+group by a.driverno,d.namea
 
 declare	@driverno nvarchar(20)
 
@@ -285,6 +287,7 @@ select
 	gno,@t_mon mm,ROW_NUMBER() over (partition by gno order by driverno) rno,driver,
 	dbo.getComma(money,0) money,dbo.getComma(total,0) total,dbo.getComma(ttotal,0) ttotal
 from @tmp order by gno  ;
+
 
 
 
