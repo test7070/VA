@@ -375,17 +375,23 @@ order by b.custno
 if(patindex('%sel1%',@t_option01) = 0)
 begin	
 	update @tmp set gno = '2' where gno = '8'
-	select gno,rno,noa,mon,custno,custname,custaddr,custtel,trandate,po,carno,product,straddr,endaddr,trtype,price,pton,mount,
-	   dbo.getComma(total,0) total,memo,vno,dbo.getComma(tmoney,0) tmoney,dbo.getComma(tax,0) tax,dbo.getComma(ttotal,0) ttotal,
-	   item,dbo.getComma(plusmoney,0) plusmoney,dbo.getComma(minusmoney,0) minusmoney,worker
-	from @tmp where gno between '0' and '6' order by custno,rno,gno
+	select gno,rno,a.noa,a.mon,custno,custname,custaddr,custtel,trandate,po,carno,product,straddr,endaddr,trtype,price,pton,mount,
+	   dbo.getComma(total,0) total,a.memo,vno,dbo.getComma(tmoney,0) tmoney,dbo.getComma(tax,0) tax,dbo.getComma(ttotal,0) ttotal,
+	   item,dbo.getComma(plusmoney,0) plusmoney,dbo.getComma(minusmoney,0) minusmoney,a.worker,
+	   b.comp comp,b.addr_comp addr,case when LEN(b.tel) = 0 then b.mobile else b.tel end tel
+	from @tmp a
+	left join cust b on a.custno=b.noa
+	where gno between '0' and '6' order by custno,rno,gno
 end
 else if(patindex('%sel1%',@t_option01) = 1)
 begin
-	select gno,rno,noa,mon,custno,custname,custaddr,custtel,trandate,po,carno,product,straddr,endaddr,trtype,price,pton,mount,
-	   dbo.getComma(total,0) total,memo,vno,dbo.getComma(tmoney,0) tmoney,dbo.getComma(tax,0) tax,dbo.getComma(ttotal,0) ttotal,
-	   item,dbo.getComma(plusmoney,0) plusmoney,dbo.getComma(minusmoney,0) minusmoney,worker
-	from @tmp where gno = '0' or gno = '7' or gno = '8' or gno = '9' order by custno,rno,gno
+	select gno,rno,a.noa,a.mon,custno,custname,custaddr,custtel,trandate,po,carno,product,straddr,endaddr,trtype,price,pton,mount,
+	   dbo.getComma(total,0) total,a.memo,vno,dbo.getComma(tmoney,0) tmoney,dbo.getComma(tax,0) tax,dbo.getComma(ttotal,0) ttotal,
+	   item,dbo.getComma(plusmoney,0) plusmoney,dbo.getComma(minusmoney,0) minusmoney,a.worker,
+	   b.comp comp,b.addr_comp addr,case when LEN(b.tel) = 0 then b.mobile else b.tel end tel
+	from @tmp a
+	left join cust b on a.custno=b.noa
+	where gno = '0' or gno = '7' or gno = '8' or gno = '9' order by custno,rno,gno
 end  ;
 
 
