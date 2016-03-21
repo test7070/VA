@@ -91,7 +91,8 @@
                 $('#txtTdate1').datepicker();
                 $('#txtTdate2').mask('999/99/99');
                 $('#txtTdate2').datepicker();
-                               	
+                
+                $('#txtXmon').mask('999/99');               	
 			}
 
 			function q_boxClose(s2) {
