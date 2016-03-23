@@ -56,7 +56,10 @@
                         type : '8',
                         name : 'xoption01',
                         value : q_getMsg('toption01').split('&')
-                    }]
+                    }, {/*2-3 [12]*/
+						type : '6',
+						name : 'xnoa'
+					}]
                 });
                 q_popAssign();
 				q_getFormat();
