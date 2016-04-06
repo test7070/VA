@@ -44,13 +44,14 @@ declare @tmp table(
 insert into @tmp
 select '0',d.cartype,a.driverno,a.driver,
 	   case when LEN(d.mobile) = 0 then d.tel else d.mobile end,
-	   b.trandate,c.po,a.carno,b.product,b.straddr,b.endaddr,b.mount,b.price,b.money,a.carchgno,'',0,0,a.memo
+	   b.trandate,c.po,c.carno,b.product,b.straddr,b.endaddr,b.mount,b.price,b.money,a.carchgno,'',0,0,a.memo
 from view_tre a
 left join view_tres b on a.noa = b.noa  
 left join view_trans c on b.tranno = c.noa and b.trannoq = c.noq
 left join driver d on a.driverno = d.noa
-where (a.datea between @t_bdate and @t_edate) and (b.trandate between @t_btdate and @t_etdate) and
-	  (LEN(a.driverno) > 0) and (a.driverno between @t_bdriverno and @t_edriverno) and (LEN(@t_po)=0 or c.po = @t_po)
+where (a.datea between @t_bdate and @t_edate) 
+	and (b.trandate between @t_btdate and @t_etdate) 
+	and (LEN(a.driverno) > 0) and (a.driverno between @t_bdriverno and @t_edriverno) and (LEN(@t_po)=0 or c.po = @t_po)
 
 declare @driverno nvarchar(20)
 declare @driver nvarchar(20)
@@ -212,9 +213,6 @@ select
 from @tmp order by driverno,gno,trandate;
  
 
-
--*******************************************************************************
-
 z_tre_va02:--z_tre_va02
 
 declare @t_bdate nvarchar(10)
@@ -338,7 +336,7 @@ declare @tmp table(
 insert into @tmp
 select '9',d.cartype,a.driverno,a.driver,
 	   case when LEN(d.mobile) = 0 then d.tel else d.mobile end,
-	   b.trandate,c.po,a.carno,b.product,b.straddr,b.endaddr,b.mount,b.price,b.money,a.carchgno,'',0,0,a.memo
+	   b.trandate,c.po,c.carno,b.product,b.straddr,b.endaddr,b.mount,b.price,b.money,a.carchgno,'',0,0,a.memo
 from view_tre a
 left join view_tres b on a.noa = b.noa  
 left join view_trans c on b.tranno = c.noa and b.trannoq = c.noq
@@ -551,7 +549,7 @@ declare @tmp table(
 insert into @tmp
 select '9',d.cartype,a.driverno,a.driver,
 	   case when LEN(d.mobile) = 0 then d.tel else d.mobile end,
-	   c.trandate,c.po,a.carno,b.product,b.straddr,b.endaddr,b.mount,b.price,b.money,a.carchgno,'',0,0,a.memo
+	   c.trandate,c.po,c.carno,b.product,b.straddr,b.endaddr,b.mount,b.price,b.money,a.carchgno,'',0,0,a.memo
 from view_tre a
 left join view_tres b on a.noa = b.noa  
 left join view_trans c on b.tranno = c.noa and b.trannoq = c.noq
