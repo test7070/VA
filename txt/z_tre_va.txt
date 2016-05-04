@@ -114,7 +114,7 @@ set @t_edriverno = case when '#non'=[8] then char(255) else [8] end
 	declare @minusb float
 	
 	declare @n int
-	declare @pageCount int  = 35 --每頁行數
+	declare @pageCount int  = 40 --每頁行數
 	
 
 	declare cursor_table cursor for 
@@ -145,8 +145,8 @@ set @t_edriverno = case when '#non'=[8] then char(255) else [8] end
 					set @n = @n + 1
 				end
 				--運費明細
-				insert into @tmp(driverno,gno,pno,trandate,carno,straddr,mount,price,[money],memoa)
-				values(@driverno,'2',@n,@trandate,@carno,@straddr,@mount,@price,@moneya,@memo)
+				insert into @tmp(driverno,gno,pno,trandate,carno,straddr,mount,price,[money],memoa,pp)
+				values(@driverno,'2',@n,@trandate,@carno,@straddr,@mount,@price,@moneya,@memo,ceiling(@n/@pageCount)+1)
 				set @n = @n + 1
 				
 				fetch next from cursor_table2 
@@ -162,8 +162,8 @@ set @t_edriverno = case when '#non'=[8] then char(255) else [8] end
 				set @n = @n + 1
 			end
 			--小計
-			insert into @tmp(driverno,gno,pno,mount,[money])
-			select @driverno,'3',@n,SUM(ISNULL(mount,0)),SUM(ISNULL(money,0))
+			insert into @tmp(driverno,gno,pno,mount,[money],pp)
+			select @driverno,'3',@n,SUM(ISNULL(mount,0)),SUM(ISNULL(money,0)),ceiling(@n/@pageCount)+1
 			from @tmpa
 			where driverno=@driverno
 			set @n = @n + 1
@@ -194,8 +194,8 @@ set @t_edriverno = case when '#non'=[8] then char(255) else [8] end
 					set @n = @n + 1
 				end
 				--加減項明細
-				insert into @tmp(driverno,gno,pno,datea,item,plus,minus,memob)
-				values(@driverno,'6',@n,@datea,@item,@plusb,@minusb,@memo)
+				insert into @tmp(driverno,gno,pno,datea,item,plus,minus,memob,pp)
+				values(@driverno,'6',@n,@datea,@item,@plusb,@minusb,@memo,ceiling(@n/@pageCount)+1)
 				set @n = @n + 1
 				
 				fetch next from cursor_table2 
@@ -211,18 +211,48 @@ set @t_edriverno = case when '#non'=[8] then char(255) else [8] end
 					set @n = @n + 1
 			end
 			--小計
-			insert into @tmp(driverno,gno,pno,plus,minus)
-			select @driverno,'7',@n,SUM(ISNULL(plus,0)),SUM(ISNULL(minus,0))
+			insert into @tmp(driverno,gno,pno,plus,minus,pp)
+			select @driverno,'7',@n,SUM(ISNULL(plus,0)),SUM(ISNULL(minus,0)),ceiling(@n/@pageCount)+1
 			from @tmpb
 			where driverno=@driverno
 			set @n = @n + 1
-
+			--總計,給司機的
+			insert into @tmp(driverno,gno,pno,[money],plus,minus,total,pp)
+			select @driverno,'20',@n,@money,@plus,@minus,@total,ceiling(@n/@pageCount)+1 from @tmpc where driverno=@driverno
+			set @n = @n + 1
+			insert into @tmp(driverno,gno,pno,[money],plus,minus,total,pp)
+			select @driverno,'21',@n,@money,@plus,@minus,@total,ceiling(@n/@pageCount)+1 from @tmpc where driverno=@driverno
+			set @n = @n + 1
+			insert into @tmp(driverno,gno,pno,[money],plus,minus,total,pp)
+			select @driverno,'22',@n,@money,@plus,@minus,@total,ceiling(@n/@pageCount)+1 from @tmpc where driverno=@driverno
+			set @n = @n + 1
+			insert into @tmp(driverno,gno,pno,[money],plus,minus,total,pp)
+			select @driverno,'23',@n,@money,@plus,@minus,@total,ceiling(@n/@pageCount)+1 from @tmpc where driverno=@driverno
+			set @n = @n + 1
+			
 			while @n%@pageCount!=0
 			begin
 				insert into @tmp(driverno,gno,pno,pp)values(@driverno,'8',@n,ceiling(@n/@pageCount)+1) 
 				set @n = @n + 1
 			end 
 		end
+		else
+		begin
+			--總計,給司機的
+			insert into @tmp(driverno,gno,pno,[money],plus,minus,total,pp)
+			select @driverno,'20',@n,@money,@plus,@minus,@total,ceiling(@n/@pageCount)+1 from @tmpc where driverno=@driverno
+			set @n = @n + 1
+			insert into @tmp(driverno,gno,pno,[money],plus,minus,total,pp)
+			select @driverno,'21',@n,@money,@plus,@minus,@total,ceiling(@n/@pageCount)+1 from @tmpc where driverno=@driverno
+			set @n = @n + 1
+			insert into @tmp(driverno,gno,pno,[money],plus,minus,total,pp)
+			select @driverno,'22',@n,@money,@plus,@minus,@total,ceiling(@n/@pageCount)+1 from @tmpc where driverno=@driverno
+			set @n = @n + 1
+			insert into @tmp(driverno,gno,pno,[money],plus,minus,total,pp)
+			select @driverno,'23',@n,@money,@plus,@minus,@total,ceiling(@n/@pageCount)+1 from @tmpc where driverno=@driverno
+			set @n = @n + 1
+		end
+		
 		
 		----合計
 		insert into @tmp(driverno,gno,pno,[money],plus,minus,total,pp)
