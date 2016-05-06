@@ -298,7 +298,8 @@ set @t_edriverno = case when '#non'=[8] then char(255) else [8] end
 	close cursor_table 
 	deallocate cursor_table
 	
-	update @tmp set driver=b.namea,tel=b.tel
+	update @tmp set driver=b.namea,tel=isnull(b.tel,'')+case when len(isnull(b.tel,''))>0 and len(isnull(b.mobile,''))>0 then ' ' else '' end + isnull(b.mobile,'')  
+		,memoa = case when b.cartype='公司車' then '' else memoa end --公司車 交運單備註不顯示
 	from @tmp a
 	left join driver b on a.driverno=b.noa 
 	
