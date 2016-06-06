@@ -26,9 +26,10 @@ set @t_edriverno = case when '#non'=[8] then char(255) else [8] end
 	insert into @tmpa(driverno,accy,noa,noq
 		,trandate,carno,straddr,mount,price,[money],memo)
 	select b.driverno,a.accy,a.noa,a.noq
-		,a.trandate,b.carno,a.straddr,a.mount,a.price,a.[money],a.memo
+		,a.trandate,c.carno,a.straddr,a.mount,a.price,a.[money],a.memo
 	from view_tres a
 	left join view_tre b on a.accy=b.accy and a.noa=b.noa
+	left join view_trans c on a.tranno=c.noa
 	where b.datea between @t_bdate and @t_edate 
 	and b.driverno between @t_bdriverno and @t_edriverno
 	----------------------------------------------------------------------------------
