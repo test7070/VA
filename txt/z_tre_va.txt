@@ -338,6 +338,7 @@ set @t_po = case when '#non'=[9] then '' else [9] end
 set @t_mon = case when '#non'=[10] then '' else [10] end
 
 ---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
 declare @tmp table(
 	gno nvarchar(1),
 	cartype nvarchar(20),
@@ -351,7 +352,8 @@ declare @tmp table(
 	straddr nvarchar(50),
 	endaddr nvarchar(50),
     mount float,
-	price float,	
+	price float,
+	discount float,	
 	money float,
 	carchgno nvarchar(max),
 	item nvarchar(max),
@@ -363,7 +365,7 @@ declare @tmp table(
 insert into @tmp
 select '0',d.cartype,a.driverno,a.driver,
 	   case when LEN(d.mobile) = 0 then d.tel else d.mobile end,
-	   b.trandate,c.po,c.carno,b.product,b.straddr,b.endaddr,b.mount,b.price,b.money,a.carchgno,'',0,0,a.memo
+	   b.trandate,c.po,c.carno,b.product,b.straddr,b.endaddr,b.mount,b.price,b.discount,b.money,a.carchgno,'',0,0,a.memo
 from view_tre a
 left join view_tres b on a.noa = b.noa  
 left join view_trans c on b.tranno = c.noa and b.trannoq = c.noq
@@ -527,7 +529,8 @@ from @tmp where gno = '3'
 select 
 	gno,@t_mon mm,driverno,
 	case when cartype = '公司車' then '司機名稱：' + driver else '車主名稱：' + driver end driver,
-	tel,trandate,po,carno,product,straddr,endaddr,dbo.getComma(mount,2) mount,dbo.getComma(price,0) price,dbo.getComma(money,0) money,
+	tel,trandate,po,carno,product,straddr,endaddr,dbo.getComma(mount,2) mount,dbo.getComma(price,0) price
+	,dbo.getComma(discount,0) discount,dbo.getComma(money,0) money,
 	item,dbo.getComma(plusmoney,0) plusmoney,dbo.getComma(minusmoney,0) minusmoney,memo
 from @tmp order by driverno,gno,trandate;
  
