@@ -530,7 +530,7 @@ select
 	gno,@t_mon mm,driverno,
 	case when cartype = '公司車' then '司機名稱：' + driver else '車主名稱：' + driver end driver,
 	tel,trandate,po,carno,product,straddr,endaddr,dbo.getComma(mount,2) mount,dbo.getComma(price,0) price
-	,dbo.getComma(discount,0) discount,dbo.getComma(money,0) money,
+	,dbo.getComma(discount,-1) discount,dbo.getComma(money,0) money,
 	item,dbo.getComma(plusmoney,0) plusmoney,dbo.getComma(minusmoney,0) minusmoney,memo
 from @tmp order by driverno,gno,trandate;
  
