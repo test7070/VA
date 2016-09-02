@@ -49,10 +49,14 @@ from cust a
 left join view_trd b on a.noa = b.custno
 left join view_trds c on b.noa = c.noa
 left join view_trans d on c.tranno = d.noa and c.trannoq = d.noq
-where (a.noa between @t_bcustno and @t_ecustno) and (b.datea between @t_bdate and @t_edate) and
-	  (LEN(@t_vccano) = 0 or b.vccano = @t_vccano) and (LEN(@t_po) = 0 or d.po = @t_po)
-	  and( len(@t_noa)=0 or b.noa=@t_noa)
+where (a.noa between @t_bcustno and @t_ecustno) 
+	and b.noa is not null
+	and (b.datea between @t_bdate and @t_edate) 
+	and (LEN(@t_vccano) = 0 or b.vccano = @t_vccano) 
+	and (LEN(@t_po) = 0 or d.po = @t_po)
+	and( len(@t_noa)=0 or b.noa=@t_noa)
 order by b.custno
+
 
 	update @tmp set trtype = case when isnull(trtype,'') = '' then '0' else trtype end
 	update @tmp set total = total*(1-(CAST(trtype as float)/100))
@@ -154,7 +158,13 @@ order by b.custno
 
 	insert into @tmp(gno,noa,custno,vno,trtype,tmoney,tax,ttotal,worker)
 	select '10',noa,custno,vccano,trtype,money,tax,total,worker
-	from view_trd where (custno between @t_bcustno and @t_ecustno) and (datea between @t_bdate and @t_edate) and (LEN(@t_vccano) = 0 or vccano = @t_vccano) and (LEN(@t_po) = 0 or po = @t_po)
+	from view_trd 
+	where (custno between @t_bcustno and @t_ecustno) 
+	and (datea between @t_bdate and @t_edate) 
+	and (LEN(@t_vccano) = 0 or vccano = @t_vccano) 
+	and (LEN(@t_po) = 0 or po = @t_po)
+	and( len(@t_noa)=0 or noa=@t_noa)
+	
 	update @tmp set trtype = case when isnull(trtype,'') = '' then '0' else trtype end where gno = '10'
 	update @tmp set tmoney = tmoney*(1-(CAST(trtype as float)/100)) where gno = '10'
 	update @tmp set tax = tax*(1-(CAST(trtype as float)/100)) where gno = '10'
@@ -296,6 +306,7 @@ order by b.custno
 	close cursor_table 
 	deallocate cursor_table
 
+
 	update @tmp set rno = 9999999 where gno = '3' or gno = '4' or gno = '5' or gno = '6'
 	
 	delete @tmp where gno = '3' and plusmoney = 0 and minusmoney = 0
@@ -320,6 +331,8 @@ order by b.custno
 	deallocate cursor_table
 
 	update @tmp set gno = '8' where gno = '2'
+	
+
 	
 	insert into @tmp(gno,rno,custno,mount,pton,total)
 	select '9',999999999,custno,SUM(mount),SUM(pton),SUM(total)
@@ -386,6 +399,7 @@ begin
 	left join cust b on a.custno=b.noa
 	where gno = '0' or gno = '7' or gno = '8' or gno = '9' order by custno,rno,gno
 end  ;
+
 
 
 --*******************************************************************************
