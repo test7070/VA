@@ -1,3 +1,178 @@
+z_tre_va05:--z_tre_va05
+	declare @t_bdate nvarchar(10) = case when '#non'=[3] then '' else [3] end
+	declare @t_edate nvarchar(10) = case when '#non'=[4] then char(255) else [4] end
+	declare @t_btdate nvarchar(10) = case when '#non'=[5] then '' else [5] end
+	declare @t_etdate nvarchar(10) = case when '#non'=[6] then char(255) else [6] end
+	declare @t_bdriverno nvarchar(20) = case when '#non'=[7] then '' else [7] end
+	declare @t_edriverno nvarchar(20) = case when '#non'=[8] then char(255) else [8] end
+	declare @t_po nvarchar(max) = case when '#non'=[9] then '' else [9] end
+	declare @t_mon nvarchar(10) = case when '#non'=[10] then '' else [10] end
+	----------------------------------------------------------------------------------	
+	declare @tmp table(
+		sel int identity(1,1)
+		,gno nvarchar(10)
+		,pno int
+		,driverno nvarchar(20)
+		,driver nvarchar(max)
+		,cartype nvarchar(20)
+		,tel nvarchar(max)
+		,treno nvarchar(20)
+		,carchgno nvarchar(max)
+		,trandate nvarchar(10)
+		,po nvarchar(20)
+		,carno nvarchar(20)
+		,product nvarchar(max)
+		,addr nvarchar(max)
+		,mount float
+		,price float
+		,discount float
+		,[money] float
+		,memo nvarchar(max)
+		
+		,item nvarchar(max)
+		,plus float
+		,minus float
+		,total float
+	)
+	
+	insert into @tmp(gno,pno,driverno,driver,treno,carchgno,trandate,po,carno,product,addr,mount,price,discount,[money],memo)
+	select '1',1,a.driverno,a.driver,a.noa,a.carchgno,b.trandate,c.po,a.carno,b.product,b.straddr
+		,b.mount,b.price,b.discount,b.[money],b.memo
+	from view_tre a
+	left join view_tres b on a.accy=b.accy and a.noa=b.noa
+	left join view_trans c on b.tranno=c.noa
+	where a.datea between @t_bdate and @t_edate
+	and isnull(a.driverno,'') between @t_bdriverno and @t_edriverno
+	and (len(@t_po)=0 or CHARINDEX(@t_po,c.po)>0)
+	--------------------------------------------------------------------------------------------------
+	declare @driverno nvarchar(20)
+	declare @treno nvarchar(20)
+	declare @carchgno nvarchar(max)
+	
+	declare @noa nvarchar(20)
+	declare @datea nvarchar(10)
+	declare @plusitem nvarchar(max)
+	declare @minusitem nvarchar(max)
+	declare @plusmoney float
+	declare @minusmoney float
+	declare @memo nvarchar(max)
+	
+	insert into @tmp(gno,pno,driverno)
+	select '3',3,driverno from @tmp where len(carchgno)>0 group by driverno
+	
+	declare cursor_table cursor for
+	select driverno,treno,carchgno from @tmp where len(carchgno)>0 group by driverno,treno,carchgno
+	open cursor_table
+	fetch next from cursor_table
+	into @driverno,@treno,@carchgno
+	while(@@FETCH_STATUS <> -1)
+	begin
+		declare cursor_table2 cursor for
+		select noa,datea,plusitem,plusmoney,minusitem,minusmoney,memo from carchg a where CHARINDEX(a.noa,@carchgno)>0 
+		open cursor_table2
+		fetch next from cursor_table2
+		into @noa,@datea,@plusitem,@plusmoney,@minusitem,@minusmoney,@memo
+		while(@@FETCH_STATUS <> -1)
+		begin
+			insert into @tmp(gno,pno,driverno,treno,trandate
+				,item,plus,minus,memo)
+			select '4',4,@driverno,@treno,@datea
+				,isnull(@plusitem,'')+ISNULL(@minusitem,'')
+				,ISNULL(@plusmoney,0)
+				,ISNULL(@minusmoney,0)
+				,@memo
+			
+			fetch next from cursor_table2
+			into @noa,@datea,@plusitem,@plusmoney,@minusitem,@minusmoney,@memo
+		end
+		close cursor_table2
+		deallocate cursor_table2
+
+		fetch next from cursor_table
+		into @driverno,@treno,@carchgno
+	end
+	close cursor_table
+	deallocate cursor_table
+	
+	--小計
+	insert into @tmp(gno,pno,driverno,mount,[money])
+	select '2',2,driverno,SUM(ISNULL(mount,0)),SUM(ISNULL([money],0))
+	from @tmp
+	where pno=1
+	group by driverno
+	
+	insert into @tmp(gno,pno,driverno,[money],plus,minus)
+	select '5',5,driverno,SUM(ISNULL([money],0)),SUM(ISNULL(plus,0)),SUM(ISNULL(minus,0)) from @tmp where pno=1 or pno=4 group by driverno
+	insert into @tmp(gno,pno,driverno,[money],plus,minus)
+	select '6',6,driverno,SUM(ISNULL([money],0)),SUM(ISNULL(plus,0)),SUM(ISNULL(minus,0)) from @tmp where pno=1 or pno=4 group by driverno
+	insert into @tmp(gno,pno,driverno,[money],plus,minus)
+	select '7',7,driverno,SUM(ISNULL([money],0)),SUM(ISNULL(plus,0)),SUM(ISNULL(minus,0)) from @tmp where pno=1 or pno=4 group by driverno
+	insert into @tmp(gno,pno,driverno,[money],plus,minus)
+	select '8',8,driverno,SUM(ISNULL([money],0)),SUM(ISNULL(plus,0)),SUM(ISNULL(minus,0)) from @tmp where pno=1 or pno=4 group by driverno
+	insert into @tmp(gno,pno,driverno,[money],plus,minus)
+	select '9',9,driverno,SUM(ISNULL([money],0)),SUM(ISNULL(plus,0)),SUM(ISNULL(minus,0)) from @tmp where pno=1 or pno=4 group by driverno
+	insert into @tmp(gno,pno,driverno,[money],plus,minus)
+	select '10',10,driverno,SUM(ISNULL([money],0)),SUM(ISNULL(plus,0)),SUM(ISNULL(minus,0)) from @tmp where pno=1 or pno=4 group by driverno
+	insert into @tmp(gno,pno,driverno,[money],plus,minus)
+	select '11',11,driverno,SUM(ISNULL([money],0)),SUM(ISNULL(plus,0)),SUM(ISNULL(minus,0)) from @tmp where pno=1 or pno=4 group by driverno
+	insert into @tmp(gno,pno,driverno,[money],plus,minus)
+	select '12',12,driverno,SUM(ISNULL([money],0)),SUM(ISNULL(plus,0)),SUM(ISNULL(minus,0)) from @tmp where pno=1 or pno=4 group by driverno
+	----------------------------------------------------------------------------
+	declare @pagecount int = 30
+	declare @n int
+	
+	declare cursor_table cursor for
+	select driverno,count(1) from @tmp group by driverno
+	open cursor_table
+	fetch next from cursor_table
+	into @driverno,@n
+	while(@@FETCH_STATUS <> -1)
+	begin
+		while @n%@pagecount!=0
+		begin
+			insert into @tmp(gno,pno,driverno)
+			select '13',13,@driverno
+			set @n = @n + 1
+		end
+
+		fetch next from cursor_table
+		into @driverno,@n
+	end
+	close cursor_table
+	deallocate cursor_table
+
+	update @tmp set driver=ISNULL(b.namea,''),cartype=ISNULL(b.cartype,''),tel=ISNULL(b.tel,'')
+	from @tmp a
+	left join driver b on a.driverno=b.noa
+	
+	update @tmp set total = ISNULL([money],0)+ISNULL([plus],0)-ISNULL([minus],0)
+	
+	select gno
+		,@t_mon mm
+		,case when cartype = '公司車' then '司機名稱：' + driver else '車主名稱：' + driver end a01
+		,'聯絡電話：'+tel a02
+		,trandate b01
+		,po b02
+		,carno b03
+		,product b04
+		,addr b05
+		,dbo.getComma(mount,-1) b06
+		,dbo.getComma(price,-1) b07
+		,discount b08
+		,dbo.getComma([money],-1) b09
+		,memo b10
+		
+		,trandate c01
+		,item c02
+		,dbo.getComma(plus,-1) c03
+		,dbo.getComma(minus,-1) c04
+		,memo c05
+		
+		,dbo.getComma([total],-1) d01
+	from @tmp 
+	order by driverno,pno,trandate;
+
+
 z_tre_va04:--z_tre_va04
 declare @t_bdate nvarchar(10)
 declare @t_edate nvarchar(10)
