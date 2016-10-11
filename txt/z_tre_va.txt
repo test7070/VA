@@ -37,7 +37,7 @@ z_tre_va05:--z_tre_va05
 	
 	insert into @tmp(gno,pno,driverno,driver,treno,carchgno,trandate,po,carno,product,addr,mount,price,discount,[money],memo)
 	select '1',1,a.driverno,a.driver,a.noa,a.carchgno,b.trandate,c.po,a.carno,b.product,b.straddr
-		,b.mount,b.price,b.discount,b.[money],b.memo
+		,b.mount,b.price,b.discount,b.[money],c.sender
 	from view_tre a
 	left join view_tres b on a.accy=b.accy and a.noa=b.noa
 	left join view_trans c on b.tranno=c.noa
