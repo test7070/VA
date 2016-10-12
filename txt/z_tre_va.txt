@@ -103,10 +103,7 @@ z_tre_va05:--z_tre_va05
 	
 	insert into @tmp(gno,pno,driverno,[money],plus,minus)
 	select '5',5,driverno,SUM(ISNULL([money],0)),SUM(ISNULL(plus,0)),SUM(ISNULL(minus,0)) from @tmp where pno=1 or pno=4 group by driverno
-	insert into @tmp(gno,pno,driverno,[money],plus,minus)
-	select '6',6,driverno,SUM(ISNULL([money],0)),SUM(ISNULL(plus,0)),SUM(ISNULL(minus,0)) from @tmp where pno=1 or pno=4 group by driverno
-	insert into @tmp(gno,pno,driverno,[money],plus,minus)
-	select '7',7,driverno,SUM(ISNULL([money],0)),SUM(ISNULL(plus,0)),SUM(ISNULL(minus,0)) from @tmp where pno=1 or pno=4 group by driverno
+	
 	insert into @tmp(gno,pno,driverno,[money],plus,minus)
 	select '8',8,driverno,SUM(ISNULL([money],0)),SUM(ISNULL(plus,0)),SUM(ISNULL(minus,0)) from @tmp where pno=1 or pno=4 group by driverno
 	insert into @tmp(gno,pno,driverno,[money],plus,minus)
@@ -117,9 +114,14 @@ z_tre_va05:--z_tre_va05
 	select '11',11,driverno,SUM(ISNULL([money],0)),SUM(ISNULL(plus,0)),SUM(ISNULL(minus,0)) from @tmp where pno=1 or pno=4 group by driverno
 	insert into @tmp(gno,pno,driverno,[money],plus,minus)
 	select '12',12,driverno,SUM(ISNULL([money],0)),SUM(ISNULL(plus,0)),SUM(ISNULL(minus,0)) from @tmp where pno=1 or pno=4 group by driverno
+	insert into @tmp(gno,pno,driverno,[money],plus,minus)
+	select '13',13,driverno,SUM(ISNULL([money],0)),SUM(ISNULL(plus,0)),SUM(ISNULL(minus,0)) from @tmp where pno=1 or pno=4 group by driverno
+	insert into @tmp(gno,pno,driverno,[money],plus,minus)
+	select '14',14,driverno,SUM(ISNULL([money],0)),SUM(ISNULL(plus,0)),SUM(ISNULL(minus,0)) from @tmp where pno=1 or pno=4 group by driverno
 	----------------------------------------------------------------------------
-	declare @pagecount int = 30
+	declare @pagecount int = 35
 	declare @n int
+	declare @mincount int = 7
 	
 	declare cursor_table cursor for
 	select driverno,count(1) from @tmp group by driverno
@@ -128,13 +130,32 @@ z_tre_va05:--z_tre_va05
 	into @driverno,@n
 	while(@@FETCH_STATUS <> -1)
 	begin
-		while @n%@pagecount!=0
+		if @n%@pagecount >= @mincount
 		begin
-			insert into @tmp(gno,pno,driverno)
-			select '13',13,@driverno
-			set @n = @n + 1
+			while @n%@pagecount!=0
+			begin
+				insert into @tmp(gno,pno,driverno)
+				select '15',15,@driverno
+				set @n = @n + 1
+			end
 		end
-
+		else
+		begin
+			while (@n-@mincount-1)%@pagecount!=0
+			begin
+				if (@n-@mincount-1)%@pagecount = @pagecount-1
+					insert into @tmp(gno,pno,driverno)select '7',7,@driverno
+				else
+					insert into @tmp(gno,pno,driverno)select '6',6,@driverno
+				set @n = @n + 1
+			end
+			
+			while @n%@pagecount!=0
+			begin
+				insert into @tmp(gno,pno,driverno)select '15',15,@driverno
+				set @n = @n + 1
+			end
+		end
 		fetch next from cursor_table
 		into @driverno,@n
 	end
@@ -147,7 +168,7 @@ z_tre_va05:--z_tre_va05
 	
 	update @tmp set total = ISNULL([money],0)+ISNULL([plus],0)-ISNULL([minus],0)
 	
-	select gno
+	select gno,pno
 		,@t_mon mm
 		,case when cartype = '公司車' then '司機名稱：' + driver else '車主名稱：' + driver end a01
 		,'聯絡電話：'+tel a02
