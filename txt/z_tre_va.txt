@@ -141,9 +141,9 @@ z_tre_va05:--z_tre_va05
 		end
 		else
 		begin
-			while (@n-@mincount-1)%@pagecount!=0
+			while (@n-@mincount)%@pagecount!=0
 			begin
-				if (@n-@mincount-1)%@pagecount = @pagecount-1
+				if (@n-@mincount)%@pagecount = @pagecount-1
 					insert into @tmp(gno,pno,driverno)select '7',7,@driverno
 				else
 					insert into @tmp(gno,pno,driverno)select '6',6,@driverno
