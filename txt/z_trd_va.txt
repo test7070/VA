@@ -39,12 +39,14 @@ declare @tmp table(
 	plusmoney float,
 	minusmoney float,
 	worker nvarchar(30)
+	,caseno nvarchar(max)
 )
 
 insert into @tmp 
 select '2',ROW_NUMBER() over (order by b.custno,d.trandate),b.noa,b.mon,a.noa,a.comp,a.addr_comp,
 	   case when LEN(a.tel) = 0 then a.mobile else a.tel end,
 	   d.trandate,d.po,d.carno,d.product,d.straddr,d.endaddr,b.trtype,d.mount,d.price,d.pton,d.total,d.memo,b.vccano,'','','',b.custchgno,'',0,0,b.worker
+		,d.caseno
 from cust a
 left join view_trd b on a.noa = b.custno
 left join view_trds c on b.noa = c.noa
@@ -381,7 +383,9 @@ order by b.custno
 if(patindex('%sel1%',@t_option01) = 0)
 begin	
 	update @tmp set gno = '2' where gno = '8'
-	select gno,rno,a.noa,a.mon,custno,custname,custaddr,custtel,trandate,po,carno,product,straddr,endaddr,trtype,price,pton,mount,
+	select gno,rno,a.noa,a.mon,custno,custname,custaddr,custtel,trandate
+	,isnull(po,'')+ISNULL(caseno,'') po
+	,carno,product,straddr,endaddr,trtype,price,pton,mount,
 	   dbo.getComma(total,0) total,a.memo,vno,dbo.getComma(tmoney,0) tmoney,dbo.getComma(tax,0) tax,dbo.getComma(ttotal,0) ttotal,
 	   item,dbo.getComma(plusmoney,0) plusmoney,dbo.getComma(minusmoney,0) minusmoney,a.worker,
 	   b.comp comp,b.addr_comp addr,case when LEN(b.tel) = 0 then b.mobile else b.tel end tel
@@ -391,7 +395,9 @@ begin
 end
 else if(patindex('%sel1%',@t_option01) = 1)
 begin
-	select gno,rno,a.noa,a.mon,custno,custname,custaddr,custtel,trandate,po,carno,product,straddr,endaddr,trtype,price,pton,mount,
+	select gno,rno,a.noa,a.mon,custno,custname,custaddr,custtel,trandate
+		,isnull(po,'')+ISNULL(caseno,'') po
+		,carno,product,straddr,endaddr,trtype,price,pton,mount,
 	   dbo.getComma(total,0) total,a.memo,vno,dbo.getComma(tmoney,0) tmoney,dbo.getComma(tax,0) tax,dbo.getComma(ttotal,0) ttotal,
 	   item,dbo.getComma(plusmoney,0) plusmoney,dbo.getComma(minusmoney,0) minusmoney,a.worker,
 	   b.comp comp,b.addr_comp addr,case when LEN(b.tel) = 0 then b.mobile else b.tel end tel
