@@ -72,8 +72,8 @@ order by b.custno
 	declare @str nvarchar(max)
 	declare @sub nvarchar(max)
 	declare @date nvarchar(10)
-	declare @pitem nvarchar(10)
-	declare @mitem nvarchar(10)
+	declare @pitem nvarchar(max)
+	declare @mitem nvarchar(max)
 	declare @pmny float
 	declare @mmny float
 	declare @memo nvarchar(200) 
