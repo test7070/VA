@@ -298,6 +298,7 @@ order by b.custno
 			values('0',@rno,@noa,@mon,@custno,@custname,@custaddr,@custtel,@worker)
 			insert into @tmp (gno,rno,noa,mon,custno)
 			values('1',@rno,@noa,@mon,@custno)
+			set @cnt = @cnt + 1
 		end				
 		set @cnt = @cnt + 1
 		set	@xcustno = @custno	
