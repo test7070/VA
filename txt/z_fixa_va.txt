@@ -1,0 +1,607 @@
+z_fixa_va01:--z_fixa_va01	
+	SET QUOTED_IDENTIFIER OFF
+	declare @cmd nvarchar(max)
+	declare @t_accy nvarchar(20) = case when '#non'=[17] then '' else [17] end
+	declare @t_carno nvarchar(max) = case when '#non'=[7] then '' else [7] end
+	----------------------------------------------------------------------------------------------------------------
+	declare @tmpa table(
+		carno nvarchar(20),
+		mon nvarchar(10),
+		fixa float,
+		tire float
+	)
+	insert into @tmpa(carno,mon,fixa,tire)
+	select isnull(carno,''),mon,SUM(ISNULL(wmoney,0)),SUM(ISNULL(cmoney,0)+ISNULL(dmoney,0)+ISNULL(emoney,0)) 
+	from trans_sum
+	where LEFT(mon,3)=@t_accy
+	and (len(@t_carno)=0 or CHARINDEX(','+carno+',',','+@t_carno+',')>0)
+	and not(ISNULL(wmoney,0)=0 and ISNULL(cmoney,0)=0 and ISNULL(dmoney,0)=0 and ISNULL(emoney,0)=0)
+	group by isnull(carno,''),mon
+	----------------------------------------------------------------------------------------------------------------
+	IF OBJECT_ID('tempdb..#z_fixa_va01')is not null
+	BEGIN
+		drop table #z_fixa_va01
+	END
+	create table #z_fixa_va01(
+		gno nvarchar(20),
+		recno int,
+		carno nvarchar(20),
+		caryear nvarchar(20),
+		a01 float,
+		a02 float,
+		a03 float,
+		a04 float,
+		a05 float,
+		a06 float,
+		a07 float,
+		a08 float,
+		a09 float,
+		a10 float,
+		a11 float,
+		a12 float,
+		a13 float,
+		b01 float,
+		b02 float,
+		b03 float,
+		b04 float,
+		b05 float,
+		b06 float,
+		b07 float,
+		b08 float,
+		b09 float,
+		b10 float,
+		b11 float,
+		b12 float,
+		b13 float
+	)
+	declare @carno nvarchar(max)
+	declare @mon nvarchar(max)
+	declare @fixa nvarchar(max)
+	declare @tire nvarchar(max)
+	
+	declare cursor_table cursor for
+	select carno,mon,fixa,tire from @tmpa 
+	open cursor_table
+	fetch next from cursor_table
+	into @carno,@mon,@fixa,@tire
+	while(@@FETCH_STATUS <> -1)
+	begin
+		if not exists(select * from #z_fixa_va01 where carno=@carno)
+		begin
+			insert into #z_fixa_va01(gno,carno)values('1',@carno)
+		end
+		set @cmd = "update #z_fixa_va01 set a"+RIGHT(@mon,2)+"=@fixa,b"+RIGHT(@mon,2)+"=@tire where carno=@carno"
+		execute sp_executesql @cmd,N'@carno nvarchar(max),@fixa float,@tire float'
+			,@carno=@carno,@fixa=@fixa,@tire=@tire
+		
+		fetch next from cursor_table
+		into @carno,@mon,@fixa,@tire
+	end
+	close cursor_table
+	deallocate cursor_table
+	
+	insert into #z_fixa_va01(gno,carno,a01,a02,a03,a04,a05,a06,a07,a08,a09,a10,a11,a12
+		,b01,b02,b03,b04,b05,b06,b07,b08,b09,b10,b11,b12)
+	select '2','',SUM(ISNULL(a01,0)),SUM(ISNULL(a02,0)),SUM(ISNULL(a03,0)),SUM(ISNULL(a04,0)),SUM(ISNULL(a05,0)),SUM(ISNULL(a06,0))
+		,SUM(ISNULL(a07,0)),SUM(ISNULL(a08,0)),SUM(ISNULL(a09,0)),SUM(ISNULL(a10,0)),SUM(ISNULL(a11,0)),SUM(ISNULL(a12,0))
+		,SUM(ISNULL(b01,0)),SUM(ISNULL(b02,0)),SUM(ISNULL(b03,0)),SUM(ISNULL(b04,0)),SUM(ISNULL(b05,0)),SUM(ISNULL(b06,0))
+		,SUM(ISNULL(b07,0)),SUM(ISNULL(b08,0)),SUM(ISNULL(b09,0)),SUM(ISNULL(b10,0)),SUM(ISNULL(b11,0)),SUM(ISNULL(b12,0))
+	from #z_fixa_va01
+	
+	update #z_fixa_va01 set a13 = ISNULL(a01,0)+ISNULL(a02,0)+ISNULL(a03,0)+ISNULL(a04,0)+ISNULL(a05,0)+ISNULL(a06,0)
+		+ISNULL(a07,0)+ISNULL(a08,0)+ISNULL(a09,0)+ISNULL(a10,0)+ISNULL(a11,0)+ISNULL(a12,0)
+		,b13 = ISNULL(b01,0)+ISNULL(b02,0)+ISNULL(b03,0)+ISNULL(b04,0)+ISNULL(b05,0)+ISNULL(b06,0)
+			+ISNULL(b07,0)+ISNULL(b08,0)+ISNULL(b09,0)+ISNULL(b10,0)+ISNULL(b11,0)+ISNULL(b12,0)
+	
+	update #z_fixa_va01 set caryear=isnull(b.caryear,'')
+	from #z_fixa_va01 a
+	left join car2 b on a.carno=b.carno
+	
+	update #z_fixa_va01 set recno=b.recno
+	from #z_fixa_va01 a
+	left join (select ROW_NUMBER()over(order by case when len(caryear)=0 then 1 else 0 end,caryear desc,carno) recno,carno from #z_fixa_va01 ) b on a.carno=b.carno
+	select carno cc,* from #z_fixa_va01 order by gno,recno
+	drop table #z_fixa_va01;
+
+
+
+--********************************************************************************
+z_fixa_va02:--z_fixa_va02
+
+declare @t_bmon nvarchar(10)
+declare @t_emon nvarchar(10)
+declare @t_bfixadate nvarchar(10)
+declare @t_efixadate nvarchar(10)
+declare @t_carno nvarchar(20)
+declare @t_bfixucc nvarchar(30)
+declare @t_efixucc nvarchar(30)
+
+set @t_bmon = case when '#non'=[3] then '' else [3] end
+set @t_emon = case when '#non'=[4] then char(255) else [4] end
+set @t_bfixadate = case when '#non'=[5] then '' else [5] end
+set @t_efixadate = case when '#non'=[6] then char(255) else [6] end
+set @t_carno = case when '#non'=[7] then '' else [7] end
+set @t_bfixucc = case when '#non'=[18] then '' else [18] end
+set @t_efixucc = case when '#non'=[19] then char(255) else [19] end
+---------------------------------------------------------------------------------
+declare @tmp table(
+	gno nvarchar(1),
+	mon nvarchar(10),
+	fixadate nvarchar(10),
+	carxno nvarchar(20),
+	productno nvarchar(30),	
+	product nvarchar(50),
+	miles float,
+	tgg nvarchar(90),
+	price float,
+	memo nvarchar(200)
+)
+
+
+insert into @tmp
+select '0',a.mon,a.fixadate,a.carno,b.productno,b.product,a.miles,a.tgg,b.price,b.memo from fixa a 
+left join fixas b on a.noa = b.noa
+where (len(@t_carno) = 0 or a.carno = @t_carno) and (a.mon between @t_bmon and @t_emon)and  (a.fixadate between @t_bfixadate and @t_efixadate) and
+	  (b.productno between @t_bfixucc and @t_efixucc)
+update @tmp set mon = SUBSTRING(mon,1,3)+'.'+SUBSTRING(mon,5,6)
+
+insert into @tmp(gno,mon,carxno)
+select '1',mon,carxno from @tmp where gno = '0' group by mon,carxno
+
+insert into @tmp(gno,carxno)
+select '2',carxno from @tmp group by carxno
+
+update @tmp set fixadate='zzzzzzzzz' where gno = '1' or gno = '2'
+update @tmp set mon='zzzzzzzzz' where gno = '2'
+
+select gno,mon,fixadate,carxno,productno,product,miles,tgg,dbo.getComma(price,0) price,memo from @tmp order by carxno,mon,gno;
+
+
+
+--******************************************************************************
+z_fixa_va03:--z_fixa_va03	
+SET QUOTED_IDENTIFIER OFF
+declare @cmd nvarchar(max)
+declare @t_accy nvarchar(20) = case when '#non'=[17] then '' else [17] end
+declare @t_cardno nvarchar(max) = case when '#non'=[8] then '' else [8] end
+--------------------------------------------------------------------------------
+SET QUOTED_IDENTIFIER OFF
+
+declare @tmp table(
+	mon nvarchar(10),
+	cardno nvarchar(20),
+	fixa float,
+	tire float
+)
+
+insert into @tmp
+select mon,cardno,SUM(isnull(wmoney,0)),SUM(isnull(cmoney,0)+isnull(dmoney,0)+isnull(emoney,0))
+from fixa
+where (LEFT(mon,3) = @t_accy) and (LEN(cardno) > 0) and (LEN(@t_cardno) = 0 or cardno = @t_cardno)
+and not(ISNULL(wmoney,0)=0 and ISNULL(cmoney,0)=0 and ISNULL(dmoney,0)=0 and ISNULL(emoney,0)=0)
+group by cardno,mon
+
+IF OBJECT_ID('tempdb..#z_fixa_va03')is not null
+BEGIN
+	drop table #z_fixa_va03
+END
+create table #z_fixa_va03(
+	gno nvarchar(20),
+	yy nvarchar(20),
+	cardno nvarchar(20),
+	f01 float,
+	f02 float,
+	f03 float,
+	f04 float,
+	f05 float,
+	f06 float,
+	f07 float,
+	f08 float,
+	f09 float,
+	f10 float,
+	f11 float,
+	f12 float,
+	fsum float,
+	t01 float,
+	t02 float,
+	t03 float,
+	t04 float,
+	t05 float,
+	t06 float,
+	t07 float,
+	t08 float,
+	t09 float,
+	t10 float,
+	t11 float,
+	t12 float,
+	tsum float
+)
+
+declare @mon nvarchar(max)
+declare @cardno nvarchar(max)
+declare @fixa nvarchar(max)
+declare @tire nvarchar(max)
+	
+declare cursor_table cursor for
+select mon,cardno,fixa,tire from @tmp
+open cursor_table
+fetch next from cursor_table
+into @mon,@cardno,@fixa,@tire
+while(@@FETCH_STATUS <> -1)
+begin
+	if not exists(select * from #z_fixa_va03 where cardno=@cardno)
+	begin
+		insert into #z_fixa_va03(gno,cardno,yy)values('1',@cardno,@t_accy)
+	end
+		
+	set @cmd = "update #z_fixa_va03 set f" + RIGHT(@mon,2)+"=" +@fixa+ ",t" + RIGHT(@mon,2)+"=" +@tire+" where cardno ='"+@cardno+"'"
+	execute sp_executesql @cmd
+		
+	fetch next from cursor_table
+	into @mon,@cardno,@fixa,@tire
+end
+close cursor_table
+deallocate cursor_table
+
+update #z_fixa_va03 set fsum = isnull(f01,0)+isnull(f02,0)+isnull(f03,0)+isnull(f04,0)+isnull(f05,0)+isnull(f06,0)+
+							   isnull(f07,0)+isnull(f08,0)+isnull(f09,0)+isnull(f10,0)+isnull(f11,0)+isnull(f12,0),
+						tsum = isnull(t01,0)+isnull(t02,0)+isnull(t03,0)+isnull(t04,0)+isnull(t05,0)+isnull(t06,0)+
+							   isnull(t07,0)+isnull(t08,0)+isnull(t09,0)+isnull(t10,0)+isnull(t11,0)+isnull(t12,0)  
+
+insert into #z_fixa_va03(gno,cardno,f01,f02,f03,f04,f05,f06,f07,f08,f09,f10,f11,f12,t01,t02,t03,t04,t05,t06,t07,t08,t09,t10,t11,t12,fsum,tsum)
+select '2','',SUM(isnull(f01,0)),SUM(isnull(f02,0)),SUM(isnull(f03,0)),SUM(isnull(f04,0)),SUM(isnull(f05,0)),SUM(isnull(f06,0)),
+			  SUM(isnull(f07,0)),SUM(isnull(f08,0)),SUM(isnull(f09,0)),SUM(isnull(f10,0)),SUM(isnull(f11,0)),SUM(isnull(f12,0)),
+			  SUM(isnull(t01,0)),SUM(isnull(t02,0)),SUM(isnull(t03,0)),SUM(isnull(t04,0)),SUM(isnull(t05,0)),SUM(isnull(t06,0)),
+			  SUM(isnull(t07,0)),SUM(isnull(t08,0)),SUM(isnull(t09,0)),SUM(isnull(t10,0)),SUM(isnull(t11,0)),SUM(isnull(t12,0)),
+			  SUM(isnull(fsum,0)),SUM(isnull(tsum,0))
+from #z_fixa_va03
+
+select 
+	gno,yy,cardno cdno,
+	dbo.getComma(f01,0)f01,dbo.getComma(f02,0)f02,dbo.getComma(f03,0)f03,dbo.getComma(f04,0)f04,dbo.getComma(f05,0)f05,dbo.getComma(f06,0)f06,
+	dbo.getComma(f07,0)f07,dbo.getComma(f08,0)f08,dbo.getComma(f09,0)f09,dbo.getComma(f10,0)f10,dbo.getComma(f11,0)f11,dbo.getComma(f12,0)f12,
+	dbo.getComma(t01,0)t01,dbo.getComma(t02,0)t02,dbo.getComma(t03,0)t03,dbo.getComma(t04,0)t04,dbo.getComma(t05,0)t05,dbo.getComma(t06,0)t06,
+	dbo.getComma(t07,0)t07,dbo.getComma(t08,0)t08,dbo.getComma(t09,0)t09,dbo.getComma(t10,0)t10,dbo.getComma(t11,0)t11,dbo.getComma(t12,0)t12,
+	dbo.getComma(fsum,0)fsum,dbo.getComma(tsum,0)tsum
+from #z_fixa_va03
+
+drop table #z_fixa_va03;
+
+
+
+--******************************************************************************
+z_fixa_va04:--z_fixa_va04
+
+declare @t_bmon nvarchar(10)
+declare @t_emon nvarchar(10)
+declare @t_bfixadate nvarchar(10)
+declare @t_efixadate nvarchar(10)
+declare @t_cardno nvarchar(20)
+declare @t_bfixucc nvarchar(30)
+declare @t_efixucc nvarchar(30)
+
+
+set @t_bmon = case when '#non'=[3] then '' else [3] end
+set @t_emon = case when '#non'=[4] then char(255) else [4] end
+set @t_bfixadate = case when '#non'=[5] then '' else [5] end
+set @t_efixadate = case when '#non'=[6] then char(255) else [6] end
+set @t_cardno = case when '#non'=[8] then '' else [8] end
+set @t_bfixucc = case when '#non'=[18] then '' else [18] end
+set @t_efixucc = case when '#non'=[19] then char(255) else [19] end
+
+---------------------------------------------------------------------------------
+declare @tmp table(
+	gno nvarchar(1),
+	mon nvarchar(10),
+	fixadate nvarchar(10),
+	plate nvarchar(20),
+	product nvarchar(50),
+	miles float,
+	tgg nvarchar(90),
+	price float,
+	memo nvarchar(200)
+)
+insert into @tmp
+select '0',a.mon,a.fixadate,a.cardno,b.product,a.miles,a.tgg,b.price,b.memo
+from fixa a 
+left join fixas b on a.noa = b.noa
+where len(a.cardno)>0 and (len(@t_cardno) = 0 or a.cardno = @t_cardno) and (a.mon between @t_bmon and @t_emon) and  (a.fixadate between @t_bfixadate and @t_efixadate) and
+	  (b.productno between @t_bfixucc and @t_efixucc)
+update @tmp set mon = SUBSTRING(mon,1,3)+'.'+SUBSTRING(mon,5,6)
+
+insert into @tmp(gno,mon,plate)
+select '1',mon,plate from @tmp where gno = '0' group by mon,plate
+
+insert into @tmp(gno,plate)
+select '2',plate from @tmp group by plate
+
+update @tmp set fixadate='zzzzzzzzz' where gno = '1' or gno = '2'
+update @tmp set mon='zzzzzzzzz' where gno = '2'
+
+select gno,mon,fixadate,plate,product,miles,tgg,dbo.getComma(price,0) price,memo from @tmp order by plate,mon,gno;
+
+
+
+
+--******************************************************************************
+z_fixa_va05:--z_fixa_va05
+
+declare @t_bindate nvarchar(50)
+declare @t_eindate nvarchar(50)
+declare @t_boutdate nvarchar(10)
+declare @t_eoutdate nvarchar(10)
+declare @t_deadline nvarchar(10)
+declare @t_option01 nvarchar(10)
+
+set @t_bindate = case when '#non'=[9] then '' else [9] end
+set @t_eindate = case when '#non'=[10] then char(255) else [10] end
+set @t_boutdate = case when '#non'=[11] then '' else [11] end
+set @t_eoutdate = case when '#non'=[12] then char(255) else [12] end
+set @t_deadline = case when '#non'=[13] then '' else [13] end
+set @t_option01 = case when '#non'=[14] then '' else [14] end
+---------------------------------------------------------------------------------
+--已截止日為優先
+if(@t_eindate > @t_deadline)
+begin
+	set @t_eindate = @t_deadline
+end
+if(@t_eoutdate > @t_deadline)
+begin
+	set @t_eoutdate = @t_deadline
+end
+
+declare @tmp table(
+	gno nvarchar(1),
+	indate nvarchar(50),
+	brand nvarchar(60),
+	price float,
+	tireno1 nvarchar(30),
+	tireno2 nvarchar(30),
+	flower nvarchar(10),
+	outdate nvarchar(30),
+	cno nvarchar(10),
+	miles float,
+	tmoney float,
+	tmount1 float,
+	tmount2 float
+) 
+insert into @tmp
+select '0',a.indate,b.brand,b.price,
+	   case when b.tiretype = '01' then b.tireno else '' end,
+	   case when b.tiretype = '02' then b.tireno else '' end,
+	   case when CHARINDEX('直花',b.product) > 0 then '直'
+			when CHARINDEX('粗花',b.product) > 0 then '粗'end,
+	   isnull(c.outdate,''),d.carno,d.miles,0,0,0
+from fixin a
+left join fixins b on a.noa=b.noa
+left join fixouts c on b.tireno=c.tireno
+left join fixout d on c.noa=d.noa
+where (b.typea = '輪胎') and (a.indate between @t_bindate and @t_eindate) and
+	  (LEN(@t_boutdate)>0 or LEN(@t_eoutdate)>0 or c.outdate between @t_boutdate and @t_eoutdate)
+
+insert into @tmp(gno,tmoney)
+select '1',SUM(price)
+from @tmp where gno = '0' and LEN(ISNULL(indate,''))>0
+update @tmp set tmount1 = (select COUNT(tireno1) from @tmp where gno = '0' and LEN(ISNULL(indate,''))>0 and LEN(tireno1)>0) where gno = '1'
+update @tmp set tmount2 = (select COUNT(tireno2) from @tmp where gno = '0' and LEN(ISNULL(indate,''))>0 and LEN(tireno2)>0) where gno = '1'
+
+insert into @tmp(gno,tmoney)
+select '2',SUM(isnull(price,0))
+from @tmp where gno = '0' and LEN(ISNULL(outdate,''))>0
+update @tmp set tmoney = case when tmoney is null then 0 else tmoney end
+update @tmp set tmount1 = (select COUNT(tireno1) from @tmp where gno = '0' and LEN(ISNULL(outdate,''))>0 and LEN(tireno1)>0) where gno = '2'
+update @tmp set tmount2 = (select COUNT(tireno2) from @tmp where gno = '0' and LEN(ISNULL(outdate,''))>0 and LEN(tireno2)>0) where gno = '2'
+
+insert into @tmp(gno,tmoney,tmount1,tmount2)
+select '3',(select tmoney  from @tmp where gno = '1')-(select tmoney  from @tmp where gno = '2'),
+		   (select tmount1 from @tmp where gno = '1')-(select tmount1 from @tmp where gno = '2'),
+		   (select tmount2 from @tmp where gno = '1')-(select tmount2 from @tmp where gno = '2')	
+
+if(@t_option01 = 'sel1')
+begin
+	update @tmp set outdate=null,cno=null,miles=null where gno = '0'
+	delete @tmp where gno = '2'
+end
+
+select *,'運算截止日:'+@t_deadline dl,
+	   case when LEN(@t_bindate)=0 or LEN(@t_eindate)=0 then '' else '進貨日期:'+@t_bindate+'~'+@t_eindate end idate,
+	   case when LEN(@t_boutdate)=0 or LEN(@t_eoutdate)=0 then '' else '領用日期:'+@t_boutdate+'~'+@t_eoutdate end odate,	
+	   dbo.getComma(price,1)prc,dbo.getComma(tmoney,0)tmny,dbo.getComma(tmount1,0)tmnt1,dbo.getComma(tmount2,0)tmnt2
+from @tmp;
+
+
+
+--******************************************************************************
+z_fixa_va06:--z_fixa_va06
+
+
+declare @t_bdate nvarchar(50)
+declare @t_edate nvarchar(50)
+
+set @t_bdate = case when '#non'=[15] then '' else [15] end
+set @t_edate = case when '#non'=[16] then char(255) else [16] end
+---------------------------------------------------------------------------------
+declare @tmp table(
+	gno nvarchar(1),
+	datea nvarchar(10),
+	brand nvarchar(20),
+--	輪胎規格
+	etireno1 nvarchar(20),
+	etireno2 nvarchar(20),
+	flower nvarchar(10),
+	miles float,
+	price float,
+	carnum nvarchar(20),
+	posit1 nvarchar(10),
+	posit2 nvarchar(10),
+	posit3 nvarchar(10),
+	posit4 nvarchar(10),
+	posit5 nvarchar(10),
+	posit6 nvarchar(10),
+	posit7 nvarchar(10),
+	posit8 nvarchar(10),
+	posit9 nvarchar(10),
+	posit10 nvarchar(10), 				
+--	責任歸屬	
+	btireno nvarchar(20),
+--	卸胎處理方式	
+	memo nvarchar(max)
+)
+
+insert into @tmp
+select '0',a.datea,c.brand,
+	   case when c.tiretype = '01' then b.etireno else '' end, 
+	   case when c.tiretype = '02' then b.etireno else '' end, 
+	   case when CHARINDEX('直',c.product) > 0 then '直' 
+			when CHARINDEX('粗',c.product) > 0 then '粗'end	,
+	   a.miles,b.price,a.carno,
+	   case when CAST(b.position as int) = 1 then '' else '' end,	
+	   case when CAST(b.position as int) = 2 then '' else '' end,	
+	   case when CAST(b.position as int) = 3 then '' else '' end,	
+	   case when CAST(b.position as int) = 4 then '' else '' end,
+	   case when CAST(b.position as int) = 5 then '' else '' end,	
+	   case when CAST(b.position as int) = 6 then '' else '' end,
+	   case when CAST(b.position as int) = 7 then '' else '' end,	
+	   case when CAST(b.position as int) = 8 then '' else '' end,
+	   case when CAST(b.position as int) = 9 then '' else '' end,	
+	   case when CAST(b.position as int) = 10 then '' else '' end,
+	   b.btireno,b.memo
+from tire a
+left join tires b on a.noa = b.noa
+left join fixins c on b.etireno = c.tireno and LEN(ISNULL(b.etireno,'')) > 0
+where(LEN(a.carno) > 0) and (a.datea between @t_bdate and @t_edate) and (b.action = '補胎' or b.action = '換胎')
+
+select gno,datea,brand,etireno1,etireno2,flower,miles,dbo.getComma(price,0)price,carnum,
+	   posit1,posit2,posit3,posit4,posit5,posit6,posit7,posit8,posit9,posit10,btireno,memo
+from @tmp  ;
+
+
+
+--******************************************************************************
+z_fixa_va07:--z_fixa_va07
+
+declare @t_bdate nvarchar(50)
+declare @t_edate nvarchar(50)
+
+set @t_bdate = case when '#non'=[15] then '' else [15] end
+set @t_edate = case when '#non'=[16] then char(255) else [16] end
+---------------------------------------------------------------------------------
+declare @tmp table(
+	gno nvarchar(1),
+	datea nvarchar(10),
+	brand nvarchar(20),
+--	輪胎規格
+	etireno1 nvarchar(20),
+	etireno2 nvarchar(20),
+	flower nvarchar(10),
+	miles float,
+	price float,
+	carnum nvarchar(20),
+	posit1 nvarchar(10),
+	posit2 nvarchar(10),
+	posit3 nvarchar(10),
+	posit4 nvarchar(10),
+	posit5 nvarchar(10),
+	posit6 nvarchar(10),
+	posit7 nvarchar(10),
+	posit8 nvarchar(10),
+	posit9 nvarchar(10),
+	posit10 nvarchar(10), 				
+--	責任歸屬	
+	btireno nvarchar(20),
+--	卸胎處理方式	
+	memo nvarchar(max)
+)
+
+insert into @tmp
+select '0',a.datea,c.brand,
+	   case when c.tiretype = '01' then b.etireno else '' end, 
+	   case when c.tiretype = '02' then b.etireno else '' end, 
+	   case when CHARINDEX('直',c.product) > 0 then '直' 
+			when CHARINDEX('粗',c.product) > 0 then '粗'end	,
+	   a.miles,b.price,a.carno,
+	   case when CAST(b.position as int) = 1 then '' else '' end,	
+	   case when CAST(b.position as int) = 2 then '' else '' end,	
+	   case when CAST(b.position as int) = 3 then '' else '' end,	
+	   case when CAST(b.position as int) = 4 then '' else '' end,
+	   case when CAST(b.position as int) = 5 then '' else '' end,	
+	   case when CAST(b.position as int) = 6 then '' else '' end,
+	   case when CAST(b.position as int) = 7 then '' else '' end,	
+	   case when CAST(b.position as int) = 8 then '' else '' end,
+	   case when CAST(b.position as int) = 9 then '' else '' end,	
+	   case when CAST(b.position as int) = 10 then '' else '' end,
+	   b.btireno,b.memo
+from tire a
+left join tires b on a.noa = b.noa
+left join fixins c on b.etireno = c.tireno and LEN(ISNULL(b.etireno,'')) > 0
+where(LEN(a.cardno) > 0) and (a.datea between @t_bdate and @t_edate) and (b.action = '補胎' or b.action = '換胎')
+
+select gno,datea,brand,etireno1,etireno2,flower,miles,dbo.getComma(price,0)price,carnum,
+	   posit1,posit2,posit3,posit4,posit5,posit6,posit7,posit8,posit9,posit10,btireno,memo
+from @tmp  ;
+
+
+
+--******************************************************************************
+z_fixa_va08:--z_fixa_va08
+
+
+declare @t_bdate nvarchar(50)
+declare @t_edate nvarchar(50)
+
+set @t_bdate = case when '#non'=[15] then '' else [15] end
+set @t_edate = case when '#non'=[16] then char(255) else [16] end
+---------------------------------------------------------------------------------
+declare @tmp table(
+	gno nvarchar(1),
+	datea nvarchar(10),
+	brand nvarchar(20),
+--	輪胎規格
+	etireno1 nvarchar(20),
+	etireno2 nvarchar(20),
+	flower nvarchar(10),
+	miles float,
+	price float,
+	carnum nvarchar(20),
+	posit1 nvarchar(10),
+	posit2 nvarchar(10),
+	posit3 nvarchar(10),
+	posit4 nvarchar(10),
+	posit5 nvarchar(10),
+	posit6 nvarchar(10),
+	posit7 nvarchar(10),
+	posit8 nvarchar(10),
+	posit9 nvarchar(10),
+	posit10 nvarchar(10), 				
+--	責任歸屬	
+	btireno nvarchar(20),
+--	卸胎處理方式	
+	memo nvarchar(max)
+)
+
+insert into @tmp
+select '0',a.datea,c.brand,
+	   case when c.tiretype = '01' then b.etireno else '' end, 
+	   case when c.tiretype = '02' then b.etireno else '' end, 
+	   case when CHARINDEX('直',c.product) > 0 then '直' 
+			when CHARINDEX('粗',c.product) > 0 then '粗'end	,
+	   a.miles,b.price,a.carno,
+	   case when CAST(b.position as int) = 1 then '' else '' end,	
+	   case when CAST(b.position as int) = 2 then '' else '' end,	
+	   case when CAST(b.position as int) = 3 then '' else '' end,	
+	   case when CAST(b.position as int) = 4 then '' else '' end,
+	   case when CAST(b.position as int) = 5 then '' else '' end,	
+	   case when CAST(b.position as int) = 6 then '' else '' end,
+	   case when CAST(b.position as int) = 7 then '' else '' end,	
+	   case when CAST(b.position as int) = 8 then '' else '' end,
+	   case when CAST(b.position as int) = 9 then '' else '' end,	
+	   case when CAST(b.position as int) = 10 then '' else '' end,
+	   b.btireno,b.memo
+from tire a
+left join tires b on a.noa = b.noa
+left join fixins c on b.etireno = c.tireno and LEN(ISNULL(b.etireno,'')) > 0
+where(LEN(a.carno) > 0) and (a.datea between @t_bdate and @t_edate) and (b.action = '補胎')
+
+select gno,datea,brand,etireno1,etireno2,flower,miles,dbo.getComma(price,0)price,carnum,
+	   posit1,posit2,posit3,posit4,posit5,posit6,posit7,posit8,posit9,posit10,btireno,memo
+from @tmp  ;

@@ -1,0 +1,570 @@
+z_trans_va01:--z_trans_va01
+
+declare @t_bmon nvarchar(10)
+declare @t_emon nvarchar(10)
+declare @t_carno nvarchar(20)
+declare @t_bdriverno nvarchar(20)
+declare @t_edriverno nvarchar(20)
+
+
+set @t_bmon = case when '#non'=[3] then '' else [3] end
+set @t_emon = case when '#non'=[4] then char(255) else [4] end
+set @t_carno = case when '#non'=[7] then '' else [7] end
+set @t_bdriverno = case when '#non'=[8] then '' else [8] end
+set @t_edriverno = case when '#non'=[9] then char(255) else [9] end
+---------------------------------------------------------------------------------
+
+declare @tmp1 table( 
+	gno nvarchar(1), 
+	yy nvarchar(10), 
+	mm nvarchar(10), 
+	driverno nvarchar(20), 
+	driver nvarchar(20), 
+	trandate nvarchar(10), 
+	carno nvarchar(50), 
+	straddr nvarchar(max), 
+	endaddr nvarchar(max), 
+	pton2 decimal(18,3), 
+	total2 float, 
+	memo nvarchar(200), 
+	plusmoney float,
+	minusmoney float, 
+	driverpay float, 
+	tmoney float 
+) 
+
+insert into @tmp1
+select '0','','',a.driverno,a.driver,a.trandate,a.carno,a.straddr,a.endaddr,a.pton2,a.total2,a.memo,
+       case when b.plus is null then 0 else b.plus end,
+       case when b.labor is null then 0 else b.labor end +
+       case when b.health is null then 0 else b.health end +
+       case when b.ticket is null then 0 else b.ticket end +
+       case when b.minus is null then 0 else b.minus end ,
+       case when b.carborr is null then 0 else b.carborr end
+       ,0
+from view_trans a 
+left join carsals b on (SUBSTRING(a.trandate,1,6) = b.noa) and (a.driver = b.driver)
+where (SUBSTRING(a.trandate,1,6) between @t_bmon and @t_emon) and (LEN(@t_carno) = 0 or a.carno = @t_carno) and (a.driverno between @t_bdriverno and @t_edriverno)
+	  
+update @tmp1 set yy = SUBSTRING(trandate,1,3) 
+update @tmp1 set mm = SUBSTRING(trandate,5,2) 
+
+insert into @tmp1(gno,yy,mm,driverno,driver,total2,plusmoney,minusmoney,driverpay)
+select '1',yy,mm,driverno,driver,SUM(total2),plusmoney,minusmoney,driverpay
+from @tmp1 where gno = '0' group by yy,mm,driverno,driver,plusmoney,minusmoney,driverpay
+
+update @tmp1 set tmoney = total2 + plusmoney - minusmoney - driverpay where gno = '1'
+
+select gno,yy,mm,driverno,driver,trandate,carno,straddr,endaddr,pton2,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,total2),1)),4,15)) total2, 
+	   memo, 
+       reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,plusmoney),1)),4,15)) plusmoney,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,minusmoney),1)),4,15)) minusmoney,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,driverpay),1)),4,15)) driverpay,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,tmoney),1)),4,15)) tmoney
+from @tmp1 order by driverno,yy,mm,gno,trandate  ;
+
+
+
+--******************************************************************************
+z_trans_va02:--z_trans_va02
+
+declare @t_bmon nvarchar(10)
+declare @t_emon nvarchar(10)
+declare @t_bdriverno nvarchar(20)
+declare @t_edriverno nvarchar(20)
+
+set @t_bmon = case when '#non'=[3] then '' else [3] end
+set @t_emon = case when '#non'=[4] then char(255) else [4] end
+set @t_bdriverno = case when '#non'=[8] then '' else [8] end
+set @t_edriverno = case when '#non'=[9] then char(255) else [9] end
+
+---------------------------------------------------------------------------------
+
+declare @tmp1 table(
+	gno nvarchar(1),
+	trandate nvarchar(10),
+	carno nvarchar(max),
+	ranking int,
+	driver nvarchar(20),
+	tranmoney float,
+	drivermoney float
+--	memo nvarchar(max)
+)
+
+
+insert into @tmp1
+select '9',SUBSTRING(a.trandate,1,6),a.carno,'',a.driver,a.total,a.total2 --,a.memo
+from view_trans a
+where (SUBSTRING(a.trandate,1,6) between @t_bmon and @t_emon) and (a.driverno between @t_bdriverno and @t_edriverno)
+order by a.trandate,a.driverno
+
+insert into @tmp1(gno,trandate,driver,tranmoney,drivermoney)
+select '8',trandate,driver,SUM(tranmoney),SUM(drivermoney)
+from @tmp1 where gno = '9' group by trandate,driver
+
+insert into @tmp1(gno,trandate,ranking,driver,tranmoney,drivermoney)
+select '0',trandate,DENSE_RANK() OVER(PARTITION BY trandate ORDER BY tranmoney DESC),driver,tranmoney,drivermoney
+from @tmp1 where gno = '8' 
+ 
+delete @tmp1 where gno = '8'
+
+insert into @tmp1(gno,trandate,driver,carno,tranmoney,drivermoney)
+select '1',trandate,driver,carno,SUM(tranmoney),SUM(drivermoney)
+from @tmp1 where gno = '9' group by trandate,driver,carno
+
+insert into @tmp1(gno,trandate,tranmoney,drivermoney)
+select '2',trandate,SUM(tranmoney),SUM(drivermoney)
+from @tmp1 where gno = '1' group by trandate
+
+insert into @tmp1(gno,trandate,carno,tranmoney)
+select '3' ,trandate,COUNT(*),SUM(tranmoney)
+from @tmp1 where gno = '1' group by trandate
+
+delete @tmp1 where gno = '9'
+
+
+declare @trandate nvarchar(20)
+declare @carno nvarchar(20)
+declare @xdriver nvarchar(20)
+declare @driver nvarchar(20)
+declare @str nvarchar(max)
+declare @recno int
+
+set @xdriver = 'xxx'
+set @str = ''
+
+declare cursor_table cursor for 
+select trandate,carno,driver from @tmp1 where gno = '1'
+open cursor_table 
+fetch next from cursor_table 
+into @trandate,@carno,@driver
+while(@@FETCH_STATUS <> -1) 
+begin  
+	 
+	if(@driver != @xdriver)
+	begin
+		set @recno = (select COUNT(*) from @tmp1 where gno = '1' and driver = @driver and trandate = @trandate)
+		set @str = @carno
+		set @recno = @recno -1
+		set @xdriver = @driver
+	end
+	else if((@driver = @xdriver) and (@recno > 0))
+	begin
+		set @str = @str + '.' + @carno
+		set @recno = @recno -1
+		set @xdriver = @driver
+	end
+	
+	if(@recno = 0)
+	begin
+		update @tmp1 set carno = @str where gno = '0' and driver = @xdriver and trandate = @trandate
+	end
+
+	fetch next from cursor_table 
+	into @trandate,@carno,@driver
+end 
+close cursor_table 
+deallocate cursor_table 
+
+declare @ranking int
+declare @i int
+declare @cnt int
+
+declare cursor_table cursor for 
+select trandate,ranking,driver from @tmp1 where gno = '0'
+open cursor_table 
+fetch next from cursor_table 
+into @trandate,@ranking,@driver
+while(@@FETCH_STATUS <> -1) 
+begin
+	set @i = 0
+	set @cnt =(select COUNT(*) from @tmp1 where gno = '1' and driver = @driver and trandate = @trandate)
+	
+	while(@i < @cnt)
+	begin
+		update @tmp1 set ranking = @ranking where gno = '1' and driver = @driver and trandate = @trandate
+		set @i = @i + 1
+	end
+	
+	fetch next from cursor_table 
+	into @trandate,@ranking,@driver
+end 
+close cursor_table 
+deallocate cursor_table
+
+update @tmp1 set trandate = SUBSTRING(trandate,1,3) + '.' + SUBSTRING(trandate,5,2) 
+update @tmp1 set tranmoney = CEILING(tranmoney / carno) where gno = '3'
+update @tmp1 set ranking = '999999999' where gno = '2' or gno = '3' 
+
+select * from @tmp1 order by trandate,ranking,gno  ;
+
+
+
+--******************************************************************************
+z_trans_va03:--z_trans_va03
+
+declare @t_bmon nvarchar(10)
+declare @t_emon nvarchar(10)
+declare @t_bdriverno nvarchar(20)
+declare @t_edriverno nvarchar(20)
+
+set @t_bmon = case when '#non'=[3] then '' else [3] end
+set @t_emon = case when '#non'=[4] then char(255) else [4] end
+set @t_bdriverno = case when '#non'=[8] then '' else [8] end
+set @t_edriverno = case when '#non'=[9] then char(255) else [9] end
+
+---------------------------------------------------------------------------------
+
+declare @tmp table( 
+	gno nvarchar(1), 
+	mon nvarchar(50),  
+	driverno nvarchar(20), 
+	driver nvarchar(20),  
+	drivermoney float, 
+	plus float,
+	money float,
+	labheal float,
+	ticket float,
+	minus float, 
+	borr float, 
+	total float,
+	memo nvarchar(1)
+) 
+
+insert into @tmp
+select '0',a.noa,a.driverno,a.driver,a.drivermoney,a.plus,'0',a.labor + a.health,a.ticket,a.minus,a.carborr,0,a.memo
+from carsals a
+where (a.noa between @t_bmon and @t_emon)and (a.driverno between @t_bdriverno and @t_edriverno) 
+
+update @tmp set mon = SUBSTRING(mon,1,3) + '.' +SUBSTRING(mon,5,2) + '月司機業績/實發金額明細表'
+
+update @tmp set money = drivermoney + plus where gno = '0'
+update @tmp set total = money - labheal - ticket - minus - borr where gno = '0'
+
+insert into @tmp(gno,mon,drivermoney,plus,money,labheal,ticket,minus,borr,total)
+select '1',mon,SUM(drivermoney),SUM(plus),SUM(money),SUM(labheal),SUM(ticket),SUM(minus),SUM(borr),SUM(total)
+from @tmp where gno = '0' group by mon
+
+<<<<<<< HEAD
+select * from @tmp1 order by trandate,driver,gno*/
+
+-------------------------------------------------------------------------------------------------------
+z_trans_va04:--z_trans_va04
+declare @t_bmon nvarchar(10)
+declare @t_emon nvarchar(10)
+set @t_bmon = case when '#non'=[3] then '' else [3] end
+set @t_emon = case when '#non'=[4] then char(255) else [4] end
+--------------------------------------------------------------------------------------------------------
+declare @tmp table( 
+gno int, 
+trandate nvarchar(10), 
+carno nvarchar(10), 
+driver nvarchar(20), 
+comp nvarchar(max), 
+po nvarchar(max), 
+noa nvarchar(max), 
+product nvarchar(max), 
+saddr nvarchar(max), 
+endaddr nvarchar(max), 
+weight float, 
+price float, 
+mount float, 
+outmount float, 
+outpay float, 
+memo nvarchar(max) ,
+sumprice float ,
+sumout float 
+) 
+insert into @tmp 
+select '0',trandate,carno,driver,comp 
+,po ,noa,product,straddr,endaddr,mount,price,
+total ,outmount ,total2,memo,0,0 from view_trans 
+where SUBSTRING(trandate,1,6) between @t_bmon and @t_emon 
+
+
+insert into @tmp(gno,sumprice,sumout)
+select '1',SUM(mount),sum(outpay)
+from @tmp
+where SUBSTRING(trandate,1,6) between @t_bmon and @t_emon 
+----------------------------------------------------------------------------------------------------------- 
+select * ,dbo.getComma(sumprice,0) sp ,dbo.getComma(sumout,0) so
+from @tmp 
+order by gno , trandate ;
+
+--------------------------------------------------------------------------------------------
+
+z_trans_va05:--z_trans_va05
+declare @t_bmon nvarchar(10)
+declare @t_emon nvarchar(10)
+set @t_bmon = case when '#non'=[3] then '' else [3] end
+set @t_emon = case when '#non'=[4] then char(255) else [4] end
+--------------------------------------------------------------------------------------------
+
+declare @yyy nvarchar(3)=left(@t_emon,3) 
+declare @mm nvarchar(2)=right(@t_emon,2) 
+declare @carcount float 
+declare @pa float = convert(float,right(@t_emon,2))-convert(float,right(@t_bmon,2)) 
+declare @pb float = convert(float,left(@t_emon,3))-convert(float,left(@t_bmon,3)) 
+declare @ps float = (@pb*12)+@pa 
+declare @tmp table( 
+gno nvarchar(2), 
+carno nvarchar(max), 
+ranks int, 
+driver nvarchar(20), 
+per1 float, 
+per2 float, 
+salary float, 
+t_salary float, 
+memo nvarchar(max), 
+cou int, 
+avgm float, 
+cuonts float, 
+avgcar float, 
+jan float, 
+feb float, 
+mar float, 
+apr float, 
+may float, 
+jun float, 
+jul float, 
+aug float, 
+sep float, 
+oct float, 
+nov float, 
+dec float,
+smss float,
+sals float,
+pes float,
+sms float
+) 
+
+--b.jan,b.feb,b.mar,b.apr,b.may,b.jun,b.jul,b.aug,b.sep,b.oct,b.nov,b.dec 
+declare @i int = 0 
+
+insert into @tmp(gno,driver,carno,per1,salary,per2,ranks,t_salary,memo,cou, 
+jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec) 
+
+select distinct 0 gno,a.driver,( 
+select distinct carno +' ',COUNT(*) from view_trans c where 
+SUBSTRING(trandate,1,6) between @t_bmon and @t_emon 
+and a.driver=c.driver 
+group by carno 
+FOR XML PATH('') 
+
+) carno 
+
+,sum(a.total) per1 
+,(case when right(@t_bmon,2)='01' then b.jan 
+when right(@t_bmon,2)='02' then b.feb 
+when right(@t_bmon,2)='03' then b.mar 
+when right(@t_bmon,2)='04' then b.apr 
+when right(@t_bmon,2)='05' then b.may 
+when right(@t_bmon,2)='06' then b.jun 
+when right(@t_bmon,2)='07' then b.jul 
+when right(@t_bmon,2)='08' then b.aug 
+when right(@t_bmon,2)='09' then b.sep 
+when right(@t_bmon,2)='10' then b.oct 
+when right(@t_bmon,2)='11' then b.nov 
+when right(@t_bmon,2)='12' then b.dec end) salary 
+,SUM(total2) per2,RANK() over(order by SUM(total2) desc) ranks, 
+0 st,b.memo, 
+(select distinct COUNT(distinct carno) from view_trans d where a.driver=d.driver 
+and SUBSTRING(trandate,1,6) between @t_bmon and @t_emon ) countt, 
+case when SUBSTRING(@yyy+'/01',1,6) between @t_bmon and @t_emon then b.jan else 0 end , 
+case when SUBSTRING(@yyy+'/02',1,6) between @t_bmon and @t_emon then b.feb else 0 end , 
+case when SUBSTRING(@yyy+'/03',1,6) between @t_bmon and @t_emon then b.mar else 0 end , 
+case when SUBSTRING(@yyy+'/04',1,6) between @t_bmon and @t_emon then b.apr else 0 end , 
+case when SUBSTRING(@yyy+'/05',1,6) between @t_bmon and @t_emon then b.may else 0 end , 
+case when SUBSTRING(@yyy+'/06',1,6) between @t_bmon and @t_emon then b.jun else 0 end , 
+case when SUBSTRING(@yyy+'/07',1,6) between @t_bmon and @t_emon then b.jul else 0 end , 
+case when SUBSTRING(@yyy+'/08',1,6) between @t_bmon and @t_emon then b.aug else 0 end , 
+case when SUBSTRING(@yyy+'/09',1,6) between @t_bmon and @t_emon then b.sep else 0 end , 
+case when SUBSTRING(@yyy+'/10',1,6) between @t_bmon and @t_emon then b.oct else 0 end , 
+case when SUBSTRING(@yyy+'/11',1,6) between @t_bmon and @t_emon then b.nov else 0 end , 
+case when SUBSTRING(@yyy+'/12',1,6) between @t_bmon and @t_emon then b.dec else 0 end 
+--b.jan,b.feb,b.mar,b.apr,b.may,b.jun,b.jul,b.aug,b.sep,b.oct,b.nov,b.dec 
+from view_trans a left join carsalary b on a.driver=b.namea 
+where SUBSTRING(a.trandate,1,6) = @t_bmon 
+and b.year=SUBSTRING(a.trandate,1,3) 
+group by a.driver,b.jan,b.feb,b.mar,b.apr,b.may,b.jun,b.jul,b.aug,b.sep,b.oct,b.nov,b.dec,b.memo 
+order by ranks 
+
+
+insert into @tmp(gno,avgm,avgcar,smss,
+sals ,pes ) 
+select '1',dbo.getComma(AVG(cou),0),avg(per2),SUM(jan+feb+mar+apr+may+jun+jul+aug+sep+oct+nov+dec),
+SUM(salary),SUM(per2)
+from @tmp 
+
+select *,@yyy ys,@mm ms,@ps,left(carno,6) cno,jan+feb+mar+apr+may+jun+jul+aug+sep+oct+nov+dec sns, 
+dbo.getComma(per1,0) per3, 
+dbo.getComma(per2,0) per4, 
+dbo.getComma(salary,0) sal, 
+dbo.getComma(avgcar,0) avgcar1,
+dbo.getComma(smss,0) smsss,
+dbo.getComma(sals,0) salss,
+dbo.getComma(pes,0) pess 
+
+from @tmp 
+order by gno;
+=======
+select gno,mon,driverno,driver,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,drivermoney),1)),4,15)) drivermoney, 
+       reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,plus),1)),4,15)) plus,
+       reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,money),1)),4,15)) money,
+       reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,labheal),1)),4,15)) labheal,
+       reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,ticket),1)),4,15)) ticket,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,minus),1)),4,15)) minus,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,borr),1)),4,15)) borr,
+	   reverse(substring(reverse(convert(nvarchar(15),CONVERT(money,total),1)),4,15)) total,
+	   memo
+from @tmp order by mon,gno ;
+<<<<<<< HEAD
+>>>>>>> ad848a707d0b82e4a1c603bc4dbc77d3656618cc
+=======
+
+
+
+
+--******************************************************************************
+z_trans_va06:--z_trans_va06
+
+declare @t_bmon nvarchar(10)
+declare @t_emon nvarchar(10)
+
+set @t_bmon = case when '#non'=[3] then '' else [3] end
+set @t_emon = case when '#non'=[4] then char(255) else [4] end
+
+---------------------------------------------------------------------------------
+
+declare @carsals table(
+	mon nvarchar(10),
+	driverno nvarchar(20),
+	driver nvarchar(20),
+	carno nvarchar(20),
+	tranmoney float,
+	drivermoney float,
+	salary float,
+	ticket float
+) 
+insert into @carsals
+select a.noa,a.driverno,a.driver,b.carno,a.tranmoney,a.drivermoney,a.total,a.ticket
+from carsals a
+left join car2 b on a.driverno = b.driverno
+where (a.noa between @t_bmon and @t_emon) and (LEN(a.driverno) > 0) and (LEN(b.carno) > 0)
+order by b.driverno
+
+declare @caras table(
+	mon  nvarchar(20),
+	driverno nvarchar(20),
+	carno nvarchar(20),
+	caritem nvarchar(20),
+	money1 float,
+	money2 float
+) 
+insert into @caras
+select a.mon,b.driverno,a.carno,a.caritem,
+	   case when a.caritem = '牌照稅' then a.outmoney else 0 end,
+	   case when a.caritem = '燃料費' then a.outmoney else 0 end
+from caras a 
+left join car2 b on a.carno = b.carno
+where (a.mon between @t_bmon and @t_emon) and (a.caritem = '牌照稅' or caritem = '燃料費') and (LEN(b.driverno) > 0)
+
+declare @carInsure table(
+	driverno nvarchar(10),
+	carno nvarchar(20),
+	bdate nvarchar(10),
+	edate nvarchar(10),
+	money float
+
+)
+insert into @carInsure
+select b.driverno,a.noa,a.bdate,a.edate,a.money
+from carInsure a
+left join car2 b on a.noa = b.carno
+where (LEN(b.driverno) > 0)
+
+declare @etc table(
+	mon nvarchar(10),
+	driverno nvarchar(10),
+	carno nvarchar(10),
+	money float
+)
+insert into @etc
+select SUBSTRING(datea,1,6),driverno,carno,sum(money)
+from etc
+where (SUBSTRING(datea,1,6) between @t_bmon and @t_emon)
+group by SUBSTRING(datea,1,6),driverno,carno
+
+declare @carLender table(
+	driverno nvarchar(10),
+	carno nvarchar(20),
+	bdate nvarchar(10),
+	edate nvarchar(10),
+	money float
+
+)
+insert into @carLender
+select b.driverno,b.carno,a.bdate,a.edate,a.installmentamount
+from carLender a
+left join car2 b on a.noa = b.carownerno
+where (LEN(b.driverno) > 0)
+
+declare @fixa table(
+	mon nvarchar(10),
+	driverno nvarchar(10),
+	carno nvarchar(20),
+	wmoney float,
+	cmoney float
+)
+insert into @fixa
+select mon,driverno,carno,SUM(wmoney),sum(cmoney)
+from fixa
+where (mon between @t_bmon and @t_emon)
+group by mon,driverno,carno
+
+declare @tmp table(
+	gno nvarchar(1),
+	rec int,
+	mon nvarchar(50),
+	carno nvarchar(20),
+	driverno nvarchar(20),
+	driver nvarchar(20),
+	tranmoney float,
+	drivermoney float,
+	salary float,
+	ticket float,
+	amoney1 float,
+	amoney2 float,
+	imoney float,
+	emny float,
+	lmoney float,
+	fmoney1 float,
+	fmoney2 float,
+	total float
+)
+insert into @tmp
+select '0',ROW_NUMBER() over (partition by a.mon order by a.driverno ),a.mon,a.carno,a.driverno,a.driver,isnull(a.tranmoney,0),isnull(a.drivermoney,0),isnull(a.salary,0),isnull(a.ticket,0),isnull(b.money1,0),isnull(b.money2,0),isnull(SUM(c.money),0),isnull(d.money ,0),isnull(SUM(e.money),0),isnull(f.wmoney,0),isnull(f.cmoney,0),0
+from @carsals a
+left join @caras b on  a.mon = b.mon and a.driverno = b.driverno 
+left join @carInsure c on a.driverno = c.driverno and (a.mon between c.bdate and c.edate)
+left join @etc d on a.mon = d.mon and a.carno = d.carno and a.driverno = d.driverno 
+left join @carLender e on a.driverno = e.driverno and (a.mon between e.bdate and e.edate)
+left join @fixa f on a.mon = f.mon and a.carno = f.carno and a.driverno = f.driverno
+group by a.mon,a.carno,a.driverno,a.driver,a.tranmoney,a.drivermoney,a.salary,a.ticket,b.money1,b.money2,d.money,f.wmoney,f.cmoney
+order by a.driverno
+
+update @tmp set total = tranmoney - drivermoney - salary - ticket - amoney1 - amoney2 - imoney - emny - lmoney - fmoney1 - fmoney2
+
+insert into @tmp (gno,mon,tranmoney,drivermoney,salary,ticket,amoney1,amoney2,imoney,emny,lmoney,fmoney1,fmoney2,total)
+select '1',mon,SUM(tranmoney),SUM(drivermoney),SUM(salary),SUM(ticket),SUM(amoney1),SUM(amoney2),SUM(imoney),SUM(emny),SUM(lmoney),SUM(fmoney1),SUM(fmoney2),SUM(total)
+from @tmp group by mon
+
+update @tmp set mon = SUBSTRING(mon,5,6) + '月份車輛營運成本分析表'
+
+select gno,mon,rec,carno,driverno,driver,dbo.getComma(tranmoney,0)tranmoney,dbo.getComma(drivermoney,0)drivermoney,dbo.getComma(salary,0)salary,dbo.getComma(ticket,0)ticket,
+	   dbo.getComma(amoney1,0)amoney1,dbo.getComma(amoney2,0)amoney2,dbo.getComma(imoney,0)imoney,dbo.getComma(emny,0)emny,
+	   dbo.getComma(lmoney,0)lmoney,dbo.getComma(fmoney1,0)fmoney1,dbo.getComma(fmoney2,0)fmoney2,dbo.getComma(total,0)total
+from @tmp order by mon,gno,driverno;
+>>>>>>> e3a2d648a6f2ac975bf1ba5423865d43ff9f8037
